@@ -1,0 +1,21 @@
+{
+    "winston": [{
+        "Console": {
+            "level": "debug",
+            "colorize": true,
+            "timestamp": true
+        }
+    }],
+    "mqtt": {
+        "host": "mqtt://mosquitto:1883",
+        "options": {
+            "clientId": "lox_to_mqtt_gateway"
+        }
+    },
+    "miniserver": {
+        "host": "loxone:80",
+        "username": "grafana",
+        "password": "grafana",
+        "readonly": true
+    }
+}

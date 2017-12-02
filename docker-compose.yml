@@ -1,0 +1,31 @@
+version: '2'
+
+services:
+
+  mosquitto:
+    build: mosquitto
+    ports:
+       - "1883:1883"
+       - "9001:9001"
+       
+  node-lox-mqtt-gw:
+    build: node-lox-mqtt-gateway
+    
+  influxdb:
+      image: influxdb:1.0
+      ports:
+        - "8083:8083"
+        - "8086:8086"
+        - "25826:25826/udp"
+      volumes:
+        - /var/lib/influxdb
+        - ./influxdb.conf:/etc/influxdb/influxdb.conf
+  grafana:
+      image: grafana/grafana:3.1.1
+      ports:
+        - "3000:3000"
+      volumes:
+        - /var/lib/grafana
+
+  loxone2influx:
+      build: loxone2influx
