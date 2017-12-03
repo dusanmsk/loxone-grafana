@@ -83,7 +83,7 @@ class Main {
         if (v == null) {
             return true
         }
-        return (System.currentTimeMillis() - v.timestamp > FIRE_EVEN_NOT_CHANGED_SEC * 1000)
+        return v.value != message ||  (System.currentTimeMillis() - v.timestamp > FIRE_EVEN_NOT_CHANGED_SEC * 1000)
     }
 
     def processMessage(topic, message) {
