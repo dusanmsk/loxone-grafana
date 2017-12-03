@@ -8,7 +8,15 @@ import org.influxdb.dto.Point
 
 import java.util.concurrent.TimeUnit
 
+class PreviousValue {
+    def timestamp
+    def value
+}
+
 class Main {
+
+    // TODO config file
+    def FIRE_EVEN_NOT_CHANGED_SEC = 120
 
     def mqttUrl = "tcp://mosquitto:1883"
 
@@ -64,23 +72,31 @@ class Main {
         while (s.contains("__")) {
             s = s.replaceAll("__", "_")
         }
-        if(s.endsWith("_")) {
+        if (s.endsWith("_")) {
             s = s[0..-2]
         }
         return s
     }
 
+    def shouldFireEvent(topic, message) {
+        PreviousValue v = previousValues[topic]
+        if (v == null) {
+            return true
+        }
+        return (System.currentTimeMillis() - v.timestamp > FIRE_EVEN_NOT_CHANGED_SEC * 1000)
+    }
+
     def processMessage(topic, message) {
         def value_name = getStatName(topic)
         print "${topic} ${message} ${value_name}"
-        if(previousValues[topic] != message) {      // do not store duplicities
+        if (shouldFireEvent(topic, message)) {
             Point.Builder point = Point.measurement(value_name).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
             def data = jsonSlurper.parseText(message)
             data.each { i ->
                 point = point.addField(i.key, cleanupNotNumber(i.value))
             }
             influxDB.write(point.build())
-            previousValues[topic] = message
+            previousValues[topic] = new PreviousValue(timestamp: System.currentTimeMillis(), value: message)
             println " - stored"
         } else {
             println " - skipped"

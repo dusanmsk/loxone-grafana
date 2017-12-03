@@ -1,4 +1,3 @@
-- configuration file which configures:
-    - if crawler is reading all statistics or only those which contains "grafana" in its name
 - systemd service file
 - optional logging (based on environment variable?) - else mute everything because fucked journald
+- specify interval after value will be written to influx even if it didn't changed from value before
