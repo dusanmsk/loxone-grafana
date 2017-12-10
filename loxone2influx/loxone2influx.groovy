@@ -83,7 +83,7 @@ class Main {
         if (v == null) {
             return true
         }
-        return v.value != message ||  (System.currentTimeMillis() - v.timestamp > FIRE_EVEN_NOT_CHANGED_SEC * 1000)
+        return v.value != message || (System.currentTimeMillis() - v.timestamp > FIRE_EVEN_NOT_CHANGED_SEC * 1000)
     }
 
     def processMessage(topic, message) {
@@ -104,7 +104,13 @@ class Main {
     }
 
     String cleanupNotNumber(value) {
+        switch (value) {
+            case 'on': return "1"
+            case 'off': return "0"
+        }
         return value.toString().replaceAll("[^0-9.-]", "");
+
+
     }
 }
 
