@@ -42,7 +42,7 @@ class Main {
                 if (!connected) {
                     log.info("Connecting ...")
 
-                    influxDB = InfluxDBFactory.connect("http://localhost:8086", "grafana", "grafana")
+                    influxDB = InfluxDBFactory.connect("http://influxdb:8086", "grafana", "grafana")
                     influxDB.createDatabase(dbName)
                     influxDB.setDatabase(dbName)
                     log.info("Connected to influx")
