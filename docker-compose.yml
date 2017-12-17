@@ -10,6 +10,7 @@ services:
        
   node-lox-mqtt-gw:
     build: node-lox-mqtt-gateway
+    restart: always
     
   influxdb:
       image: influxdb:1.0
@@ -18,14 +19,14 @@ services:
         - "8086:8086"
         - "25826:25826/udp"
       volumes:
-        - /var/lib/influxdb
+        - /var/lib/loxone2grafana/influxdb:/var/lib/influxdb
         - ./influxdb.conf:/etc/influxdb/influxdb.conf
   grafana:
       image: grafana/grafana:3.1.1
       ports:
         - "3000:3000"
       volumes:
-        - /var/lib/grafana
+        - /var/lib/loxone2grafana/grafana:/var/lib/grafana
 
   loxone2influx:
       build: loxone2influx
