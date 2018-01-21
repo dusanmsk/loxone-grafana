@@ -13,16 +13,11 @@ import org.influxdb.dto.Point
 
 import java.util.concurrent.TimeUnit
 
-class PreviousValue {
-    def timestamp
-    def value
-}
-
 @Slf4j
 class Main {
 
     // TODO config file
-    def FIRE_EVEN_NOT_CHANGED_SEC = 120
+    def FIRE_EVEN_NOT_CHANGED_SEC = 1800        // each 30 min refire stalled values
     def RECONNECT_TIME_SEC = 30
 
     def mqttUrl = "tcp://mosquitto:1883"
@@ -33,9 +28,11 @@ class Main {
     String dbName = "loxone";
 
     def previousValues = [:]
+    def fireTimestamps = [:]
 
 
     def start() throws Exception {
+        refireThread.start()
         def connected = false
         while (true) {
             try {
@@ -86,7 +83,7 @@ class Main {
                 connected = false
             }
 
-            Thread.sleep(RECONNECT_TIME_SEC*1000);
+            Thread.sleep(RECONNECT_TIME_SEC * 1000);
         }
 
     }
@@ -102,28 +99,37 @@ class Main {
         return s
     }
 
-    def shouldFireEvent(topic, message) {
-        PreviousValue v = previousValues[topic]
-        if (v == null) {
-            return true
-        }
-        return v.value != message || (System.currentTimeMillis() - v.timestamp > FIRE_EVEN_NOT_CHANGED_SEC * 1000)
-    }
-
     def processMessage(topic, message) {
         def value_name = getStatName(topic)
-        print "${topic} ${message} ${value_name}"
-        if (shouldFireEvent(topic, message)) {
-            Point.Builder point = Point.measurement(value_name).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-            def data = jsonSlurper.parseText(message)
-            data.each { i ->
-                point = point.addField(i.key, fixupValue(i.value))
-            }
-            influxDB.write(point.build())
-            previousValues[topic] = new PreviousValue(timestamp: System.currentTimeMillis(), value: message)
-            println " - stored"
+        if (previousValues[topic] != message) {
         } else {
-            println " - skipped"
+            log.info("Skipping ${topic} ${message} ${value_name}")
+        }
+    }
+
+    def fireMessage(topic, message) {
+        def now = System.currentTimeMillis()
+        def value_name = getStatName(topic)
+        Point.Builder point = Point.measurement(value_name).time(now, TimeUnit.MILLISECONDS)
+        def data = jsonSlurper.parseText(message)
+        data.each { i ->
+            point = point.addField(i.key, fixupValue(i.value))
+        }
+        influxDB.write(point.build())
+        fireTimestamps[topic] = now
+        previousValues[topic] = message
+        log.info("Storing ${topic} ${message} ${value_name}")
+    }
+
+    def refireStoredMessages() {
+        def now = System.currentTimeMillis()
+        previousValues.keySet().each { topic ->
+            def message = previousValues[topic]
+            def lastFired = fireTimestamps[topic]
+            lastFired = lastFired == null ? 0 : lastFired
+            if (now - lastFired > FIRE_EVEN_NOT_CHANGED_SEC * 1000) {
+                fireMessage(topic, message)
+            }
         }
     }
 
@@ -133,9 +139,21 @@ class Main {
             case 'off': return "0"
         }
         return value.toString().replaceAll("[^0-9.-]", "");
-
-
     }
+
+
+    Thread refireThread = new Thread(new Runnable() {
+        @Override
+        void run() {
+            while (true) {
+                try {
+                    refireStoredMessages()
+                } finally {
+                    Thread.sleep(FIRE_EVEN_NOT_CHANGED_SEC * 1000)
+                }
+            }
+        }
+    })
 }
 
 def m = new Main()
