@@ -13,7 +13,7 @@
         }
     },
     "miniserver": {
-        "host": "loxone:80",
+        "host": "192.168.100.60:80",
         "username": "grafana",
         "password": "grafana",
         "readonly": true
