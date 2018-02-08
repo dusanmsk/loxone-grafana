@@ -1,6 +1,6 @@
 [Service]
 ExecStart=/opt/loxone-grafana/run.sh
-WorkingDirectory=/home/msk/opt/loxone-grafana/
+WorkingDirectory=/opt/loxone-grafana/
 User=msk
 Group=msk
 
