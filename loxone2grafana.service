@@ -1,0 +1,9 @@
+[Service]
+ExecStart=/opt/loxone-grafana/run.sh
+WorkingDirectory=/home/msk/opt/loxone-grafana/
+User=msk
+Group=msk
+
+[Install]
+WantedBy=multi-user.target
+Restart=always
