@@ -102,6 +102,7 @@ class Main {
     def processMessage(topic, message) {
         def value_name = getStatName(topic)
         if (previousValues[topic] != message) {
+            fireMessage(topic, message)
         } else {
             log.info("Skipping ${topic} ${message} ${value_name}")
         }
