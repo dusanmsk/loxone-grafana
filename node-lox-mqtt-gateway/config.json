@@ -1,7 +1,7 @@
 {
     "winston": [{
         "Console": {
-            "level": "debug",
+            "level": "info",
             "colorize": true,
             "timestamp": true
         }
@@ -9,7 +9,7 @@
     "mqtt": {
         "host": "mqtt://mosquitto:1883",
         "options": {
-            "clientId": "lox_to_mqtt_gateway"
+            "clientId": "node-lox-mqtt-gateway"
         }
     },
     "miniserver": {
