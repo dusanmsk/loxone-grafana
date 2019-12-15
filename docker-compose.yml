@@ -4,16 +4,18 @@ services:
 
   mosquitto:
     build: mosquitto
+    restart: always
     ports:
        - "1883:1883"
        - "9001:9001"
-       
+
   node-lox-mqtt-gw:
     build: node-lox-mqtt-gateway
     restart: always
-    
+
   influxdb:
       image: influxdb:1.0
+      restart: always
       ports:
         - "8083:8083"
         - "8086:8086"
@@ -21,12 +23,15 @@ services:
       volumes:
         - /data/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
         - ./influxdb.conf:/etc/influxdb/influxdb.conf
+        -
   grafana:
       image: grafana/grafana:3.1.1
+      restart: always
       ports:
         - "3000:3000"
       volumes:
         - /data/docker_volumes/loxone_monitoring/grafana:/var/lib/grafana
 
   loxone2influx:
-      build: loxone2influx
+    build: loxone2influx
+    restart: always
