@@ -23,7 +23,7 @@ services:
       volumes:
         - /data/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
         - ./influxdb.conf:/etc/influxdb/influxdb.conf
-        -
+
   grafana:
       image: grafana/grafana:4.2.0
       restart: always
