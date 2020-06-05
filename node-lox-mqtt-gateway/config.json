@@ -1,11 +1,4 @@
 {
-    "winston": [{
-        "Console": {
-            "level": "info",
-            "colorize": true,
-            "timestamp": true
-        }
-    }],
     "mqtt": {
         "host": "mqtt://mosquitto:1883",
         "options": {

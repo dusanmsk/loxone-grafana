@@ -1,18 +1,11 @@
 FROM alpine
 
-
-RUN apk update && apk add nodejs nodejs-npm
+RUN apk update && apk add nodejs nodejs-npm wget
 RUN npm config set user 0; npm config set unsafe-perm true
 #RUN npm install -g --unsafe-perm node-lox-mqtt-gateway
+RUN cd /tmp && wget https://github.com/dusanmsk/node-lox-mqtt-gateway/archive/master.zip && unzip master.zip && cd node-lox-mqtt-gateway-master &&  npm -g install
 
 COPY config.json /default.json
-COPY tmp_fixed_gateway /tmp_fixed_gateway
-RUN  cd /tmp_fixed_gateway; npm -g install
-
 COPY run.sh /run.sh
 
 CMD [ "/bin/sh", "/run.sh" ]
-
-
-
-

@@ -1,5 +1,10 @@
 version: '2'
 
+volumes:
+    influxdb_volume:
+    grafana_volume:
+
+
 services:
 
   mosquitto:
@@ -21,7 +26,7 @@ services:
         - "8086:8086"
         - "25826:25826/udp"
       volumes:
-        - /data/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
+        - influxdb_volume:/var/lib/influxdb
         - ./influxdb.conf:/etc/influxdb/influxdb.conf
 
   grafana:
@@ -30,7 +35,7 @@ services:
       ports:
         - "3000:3000"
       volumes:
-        - /data/docker_volumes/loxone_monitoring/grafana:/var/lib/grafana
+        - grafana_volume:/var/lib/grafana
 
   loxone2influx:
     build: loxone2influx
