@@ -9,18 +9,18 @@ services:
 
   mosquitto:
     build: mosquitto
-    restart: always
+    restart: unless-stopped
     ports:
        - "1883:1883"
        - "9001:9001"
 
   node-lox-mqtt-gw:
     build: node-lox-mqtt-gateway
-    restart: always
+    restart: unless-stopped
 
   influxdb:
       image: influxdb:1.0
-      restart: always
+      restart: unless-stopped
       ports:
         - "8083:8083"
         - "8086:8086"
@@ -31,7 +31,7 @@ services:
 
   grafana:
       image: grafana/grafana:4.2.0
-      restart: always
+      restart: unless-stopped
       ports:
         - "3000:3000"
       volumes:
@@ -39,7 +39,7 @@ services:
 
   loxone2influx:
     build: loxone2influx
-    restart: always
+    restart: unless-stopped
     environment:
       - MQTT_ADDRESS=tcp://mosquitto:1883
       - LOXONE_MQTT_TOPIC_NAME=lox_out
