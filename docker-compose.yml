@@ -40,3 +40,7 @@ services:
   loxone2influx:
     build: loxone2influx
     restart: always
+    environment:
+      - MQTT_ADDRESS=tcp://mosquitto:1883
+      - LOXONE_MQTT_TOPIC_NAME=lox
+      - FIRE_EVEN_NOT_CHANGED_SEC=600    # resend stalled values after specified seconds
