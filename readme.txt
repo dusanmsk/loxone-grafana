@@ -7,3 +7,7 @@ quickstart:
 5. go to http://localhost:3000, admin:admin, configure new influxdb datasource as:
     name:influx, default:yes, type:InfluxDB, url:http://influxdb:8086, access:proxy, no authentication, database:loxone, no user password, save and test (must be green)
 6. grafana is ready, go ahead and create some graphs
+
+Tips:
+
+If you are using your own mqtt broker, comment out 'mosquitto' section in docker-compose.yml and specify mqtt address in 'MQTT_ADDRESS' property in that same file.
