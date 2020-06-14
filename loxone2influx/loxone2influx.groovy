@@ -44,14 +44,19 @@ class Main {
         mqttConnectOptions.setMaxReconnectDelay(60)
         client.connect(mqttConnectOptions)
 
-        client.setCallback(new MqttCallback() {
+        client.setCallback(new MqttCallbackExtended() {
+            @Override
+            void connectComplete(boolean b, String s) {
+                subscribe()
+            }
+
             @Override
             void connectionLost(Throwable throwable) {
                 log.warn "MQTT connection lost. Will try to reconnect automatically."
             }
 
             @Override
-            void messageArrived(String topic, MqttMessage mqttMessage) {
+            void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
                 try {
                     processMessage(topic, new String(mqttMessage.payload))
                 } catch (Exception e) {
@@ -60,14 +65,18 @@ class Main {
             }
 
             @Override
-            void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {}
-        })
+            void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
 
-        client.subscribe("${LOXONE_MQTT_TOPIC_NAME}/#")
-        log.info("Connected to mqtt")
-        log.info("Ready")
+            }
+        })
+        subscribe()
     }
 
+    def subscribe() {
+        log.info("Connected to mqtt")
+        client.subscribe("${LOXONE_MQTT_TOPIC_NAME}/#")
+        log.info("Ready")
+    }
 
     def getStatName(topic) {
         def s = topic.toString().replace("${LOXONE_MQTT_TOPIC_NAME}/", "").replace("/state", "").replaceAll("[^A-Za-z0-9_]", "_");
