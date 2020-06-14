@@ -13,7 +13,7 @@
         }
     },
     "miniserver": {
-        "mqtt_prefix": "lox_out",
+        "mqtt_prefix": "lox",
         "host": "192.168.100.60:80",
         "username": "grafana",
         "password": "grafana",

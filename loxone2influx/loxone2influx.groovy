@@ -70,7 +70,7 @@ class Main {
 
 
     def getStatName(topic) {
-        def s = topic.toString().replace("lox/", "").replace("/state", "").replaceAll("[^A-Za-z0-9_]", "_");
+        def s = topic.toString().replace("${LOXONE_MQTT_TOPIC_NAME}/", "").replace("/state", "").replaceAll("[^A-Za-z0-9_]", "_");
         while (s.contains("__")) {
             s = s.replaceAll("__", "_")
         }
