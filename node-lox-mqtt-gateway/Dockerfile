@@ -7,5 +7,6 @@ RUN cd /tmp && wget https://github.com/dusanmsk/node-lox-mqtt-gateway/archive/ma
 
 COPY config.json /default.json
 COPY run.sh /run.sh
+RUN  chmod a=rx /run.sh
 
 CMD [ "/bin/sh", "/run.sh" ]
