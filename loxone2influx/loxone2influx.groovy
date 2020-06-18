@@ -99,17 +99,22 @@ class Main {
     }
 
     def fireMessage(topic, message) {
-        def now = System.currentTimeMillis()
-        def value_name = getStatName(topic)
-        Point.Builder point = Point.measurement(value_name).time(now, TimeUnit.MILLISECONDS)
-        def data = jsonSlurper.parseText(message)
-        data.each { i ->
-            point = point.addField(i.key, fixupValue(i.value))
+        try {
+            def now = System.currentTimeMillis()
+            def value_name = getStatName(topic)
+            Point.Builder point = Point.measurement(value_name).time(now, TimeUnit.MILLISECONDS)
+            def data = jsonSlurper.parseText(message)
+            data.each { i ->
+                point = point.addField(i.key, fixupValue(i.value))
+            }
+            influxDB.write(point.build())
+            fireTimestamps[topic] = now
+            previousValues[topic] = message
+            log.info("Storing ${topic} ${message} ${value_name}")
+        } catch (Exception e) {
+            log.error("Failed to store to influx", e)
+            System.exit(1)
         }
-        influxDB.write(point.build())
-        fireTimestamps[topic] = now
-        previousValues[topic] = message
-        log.info("Storing ${topic} ${message} ${value_name}")
     }
 
     def refireStoredMessages() {
