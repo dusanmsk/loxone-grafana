@@ -61,6 +61,7 @@ class Main {
                     processMessage(topic, new String(mqttMessage.payload))
                 } catch (Exception e) {
                     e.printStackTrace()
+                    System.exit(1)
                 }
             }
 
