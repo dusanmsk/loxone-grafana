@@ -1,3 +1,6 @@
+upgrade:
+read upgrade.txt because there are some compatibility breakouts
+
 quickstart:
 
 0. create dedicated user in loxone, assign permissions. Check in loxone web interface that new user see all controls you want to store into influx/grafana.
