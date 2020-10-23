@@ -1,0 +1,61 @@
+There was a bug in loxone2influx that sends all data as strings instead numbers to influx. It causes multiple problems, such as impossibility
+to do mathematic operations over measured data, or in newer version of grafana generally, because it is less tolerant to strings and it causes another problems. (see issue #2).
+
+To get rid of this you need to start with new empty influx after upgrade (and then optionally migrate old data back).
+
+Migration tool does its best to convert all existing measures to numbers (for example it is able to convert "-123.456 kW.Followed-with-some.non-numeric stuff" to -123.456),
+but there always should be data loss of some exotic values.
+
+So, let's go:
+
+1. stop everything
+   ./stop.sh
+   
+2. make backup
+   sudo cp -a /data/docker_volumes/loxone_monitoring/influxdb /data/docker_volumes/loxone_monitoring/influxdb.backup
+   sudo cp -a /data/docker_volumes/loxone_monitoring/grafana /data/docker_volumes/loxone_monitoring/grafana.backup
+   sudo mv /data/docker_volumes/loxone_monitoring/influxdb /data/docker_volumes/loxone_monitoring/influxdb.old
+
+3. change grafana files ownership
+   sudo chown -R 472:472 /data/docker_volumes/loxone_monitoring/grafana   
+
+4. start containers
+   ./start.sh
+
+You should see all your old measurements, dashboards etc..., but no historical data (only new data after start)   
+   
+   
+To migrate old data (optional), do following steps:
+
+5. now paste this at the end of the docker-compose.yml file:
+
+# stuff for fixing strings to floats, see upgrade.txt for more info
+# WARNING ! Run this only once !!!!      
+
+  string2float_fix:
+    build: util/string2float_fix
+    
+  srcinfluxdb:
+    image: influxdb:1.8
+    restart: unless-stopped
+    volumes:
+      - /data/docker_volumes/loxone_monitoring/influxdb.old:/var/lib/influxdb
+          
+6. start containers
+   ./build.sh
+   ./start.sh
+   
+7. monitor what's going on
+   docker logs -f loxone-grafana_string2float_fix_1   # you should see migration progress, at least "Processing measurement: XYZ" messages" and then conversion progress (Processed XXXX points)
+   docker logs -f loxone-grafana_string2float_fix_1   # you should see live data from loxone going to influx
+
+It is not possible to inform you when migration is done (or at least I didn't found the way how influx-java client informs about finishing chunk operations), so you have to
+watch progress of migration and when there will be no change for a long time (minutes), you are probably done. It should take hours to migrate all data, especially with big
+database and big loxplan containing hundreds of measurement with millions points each. You should see all historical data in grafana for all your previously configured measurements.
+
+If it seems that all data was migrated, stop containers (./stop.sh), remove everything after
+"# stuff for fixing strings to floats, see upgrade.txt for more info"
+from docker-compose.yml and ./start.sh again.
+
+   
+If everything goes wrong, delete /data/docker_volumes/loxone_monitoring/influxdb, /data/docker_volumes/loxone_monitoring/influxdb.old and restore everything from backup.    

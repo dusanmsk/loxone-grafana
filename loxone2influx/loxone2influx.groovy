@@ -106,7 +106,10 @@ class Main {
             Point.Builder point = Point.measurement(value_name).time(now, TimeUnit.MILLISECONDS)
             def data = jsonSlurper.parseText(message)
             data.each { i ->
-                point = point.addField(i.key, fixupValue(i.value))
+                def value = fixupValue(i.value)
+                if(value != null) {
+                  point = point.addField(i.key, value)
+                }
             }
             influxDB.write(point.build())
             fireTimestamps[topic] = now
@@ -130,13 +133,40 @@ class Main {
         }
     }
 
-    String fixupValue(value) {
-        switch (value) {
-            case 'on': return "1"
-            case 'off': return "0"
+        
+    def fixupValue(value) {
+        try {
+            value = value.toString()
+            // convert known textual values to numeric
+            value = value.replace("on", "1")
+            value = value.replace("off", "0")
+
+            // extract numeric part of value (value should follow any text, like '-65.0 F' or '1250.5 kWh' or fuckups like '-12.33 some.thing-nasty') and convert it to float
+            if (value[0] == '-' || (value[0] as Character).isDigit() || value[0] == '.') {
+                def numericValue = []
+                def dotCnt = 0
+                for (int i = 0; i < value.length(); i++) {
+                    char ch = value[i]
+                    if(ch == '-' && i == 0) {
+                        numericValue << ch
+                    }
+                    else if(ch.isDigit()) {
+                        numericValue << ch
+                    } else if (ch == '.' && dotCnt == 0) {
+                        numericValue << ch
+                        dotCnt++
+                    } else {
+                        break
+                    }
+                }
+                return numericValue.join("") as Float
+            }
+        } catch (Exception e) {
+            // on any error or value that is not possible to convert to float return null
         }
-        return value.toString().replaceAll("[^0-9.-]", "");
+        return null
     }
+
 
 
     Thread refireThread = new Thread(new Runnable() {
