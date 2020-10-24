@@ -105,16 +105,20 @@ class Main {
             def value_name = getStatName(topic)
             Point.Builder point = Point.measurement(value_name).time(now, TimeUnit.MILLISECONDS)
             def data = jsonSlurper.parseText(message)
+            def fieldCount = 0
             data.each { i ->
                 def value = fixupValue(i.value)
                 if(value != null) {
                   point = point.addField(i.key, value)
+                  fieldCount++
                 }
             }
-            influxDB.write(point.build())
-            fireTimestamps[topic] = now
-            previousValues[topic] = message
-            log.info("Storing ${topic} ${message} ${value_name}")
+            if(fieldCount > 0) {
+                influxDB.write(point.build())
+                fireTimestamps[topic] = now
+                previousValues[topic] = message
+                log.info("Storing ${topic} ${message} ${value_name}")
+            }
         } catch (Exception e) {
             log.error("Failed to store to influx", e)
             System.exit(1)
