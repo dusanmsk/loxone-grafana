@@ -53,6 +53,8 @@ class Main {
             remainingMeasurements--
         }
 
+        log.info("Migration done")
+
     }
 
 
