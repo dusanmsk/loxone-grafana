@@ -30,7 +30,6 @@ To migrate old data (optional), do following steps:
 5. now paste this at the end of the docker-compose.yml file:
 
 # stuff for fixing strings to floats, see upgrade.txt for more info
-# WARNING ! Run this only once !!!!      
 
   string2float_fix:
     build: util/string2float_fix
@@ -41,21 +40,19 @@ To migrate old data (optional), do following steps:
     volumes:
       - /data/docker_volumes/loxone_monitoring/influxdb.old:/var/lib/influxdb
           
-6. start containers
+6. rebuild and restart containers
+   ./stop.sh
    ./build.sh
    ./start.sh
    
 7. monitor what's going on
-   docker logs -f loxone-grafana_string2float_fix_1   # you should see migration progress, at least "Processing measurement: XYZ" messages" and then conversion progress (Processed XXXX points)
-   docker logs -f loxone-grafana_string2float_fix_1   # you should see live data from loxone going to influx
+   docker logs -f loxone-grafana_string2float_fix_1   # you should see migration progress. At least "Processing measurement: XYZ, remaining XXX" messages"
+   docker logs -f loxone-grafana_loxone2influx_1      # you should see live data from loxone going to influx
 
-It is not possible to inform you when migration is done (or at least I didn't found the way how influx-java client informs about finishing chunk operations), so you have to
-watch progress of migration and when there will be no change for a long time (minutes), you are probably done. It should take hours to migrate all data, especially with big
-database and big loxplan containing hundreds of measurement with millions points each. You should see all historical data in grafana for all your previously configured measurements.
+After succesfull migration you should see all historical data and also new data in grafana for all your previously configured measurements.
 
 If it seems that all data was migrated, stop containers (./stop.sh), remove everything after
 "# stuff for fixing strings to floats, see upgrade.txt for more info"
 from docker-compose.yml and ./start.sh again.
 
-   
 If everything goes wrong, delete /data/docker_volumes/loxone_monitoring/influxdb, /data/docker_volumes/loxone_monitoring/influxdb.old and restore everything from backup.    
