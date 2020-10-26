@@ -49,7 +49,7 @@ To migrate old data (optional), do following steps:
    docker logs -f loxone-grafana_string2float_fix_1   # you should see migration progress. At least "Processing measurement: XYZ, remaining XXX" messages"
    docker logs -f loxone-grafana_loxone2influx_1      # you should see live data from loxone going to influx
 
-After succesfull migration you should see all historical data and also new data in grafana for all your previously configured measurements.
+After succesfull migration ("Migration done" message in grafana_string2float_fix_1 containet) you should see all historical data and also new data in grafana for all your previously configured measurements.
 
 If it seems that all data was migrated, stop containers (./stop.sh), remove everything after
 "# stuff for fixing strings to floats, see upgrade.txt for more info"
