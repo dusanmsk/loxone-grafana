@@ -1,4 +1,6 @@
-FROM groovy:jre8-alpine
+FROM debian
+
+RUN apt-get update && apt-get install -y groovy bash influxdb-client
 
 COPY convert.groovy /convert.groovy
 
