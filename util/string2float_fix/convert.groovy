@@ -138,7 +138,7 @@ class Main {
 
     def extractCsvLine(String[] header, String[] fields) {
         def ret = [:]
-        for (i in 0..<header.size()) {
+        for (i in 0..<fields.size()) {
             ret[header[i]] = fields[i]
         }
         return ret

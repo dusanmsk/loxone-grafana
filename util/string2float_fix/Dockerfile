@@ -1,4 +1,4 @@
-FROM debian
+FROM ubuntu
 
 RUN apt-get update && apt-get install -y groovy bash influxdb-client
 
