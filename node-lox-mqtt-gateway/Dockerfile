@@ -1,9 +1,12 @@
-FROM alpine
+FROM node:12-alpine
 
-RUN apk update && apk add nodejs nodejs-npm wget bash
+#RUN apt-get update && apt-get install -f wget bash git         # debian
+RUN apk update && apk add wget bash git                         # alpine
+
 RUN npm config set user 0; npm config set unsafe-perm true
-#RUN npm install -g --unsafe-perm node-lox-mqtt-gateway
-RUN cd /tmp && wget https://github.com/dusanmsk/node-lox-mqtt-gateway/archive/master.zip && unzip master.zip && cd node-lox-mqtt-gateway-master &&  npm -g install
+
+RUN cd /tmp && git clone https://github.com/dusanmsk/node-lox-mqtt-gateway.git nodelox
+RUN cd /tmp/nodelox && npm -g install
 
 COPY config.json /default.json
 COPY run.sh /run.sh
