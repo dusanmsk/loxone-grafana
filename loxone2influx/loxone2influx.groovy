@@ -36,12 +36,11 @@ class Main {
         influxDB = InfluxDBFactory.connect("http://influxdb:8086", "grafana", "grafana")
         influxDB.createDatabase(dbName)
         influxDB.setDatabase(dbName)
+        influxDB.enableBatch(10, 2, TimeUnit.SECONDS)
         log.info("Connected to influx")
 
         client = new MqttClient(MQTT_ADDRESS, "mqtt2influx", null)
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions()
-        mqttConnectOptions.setAutomaticReconnect(true)
-        mqttConnectOptions.setMaxReconnectDelay(60)
         client.connect(mqttConnectOptions)
 
         client.setCallback(new MqttCallbackExtended() {
@@ -52,7 +51,8 @@ class Main {
 
             @Override
             void connectionLost(Throwable throwable) {
-                log.warn "MQTT connection lost. Will try to reconnect automatically."
+                log.warn "MQTT connection lost. Exiting."
+                System.exit(1)
             }
 
             @Override
@@ -61,7 +61,7 @@ class Main {
                     processMessage(topic, new String(mqttMessage.payload))
                 } catch (Exception e) {
                     e.printStackTrace()
-                    System.exit(1)
+                    System.exit(2)
                 }
             }
 
@@ -117,7 +117,7 @@ class Main {
             log.info("Storing ${topic} ${message} ${value_name}")
         } catch (Exception e) {
             log.error("Failed to store to influx", e)
-            System.exit(1)
+            System.exit(3)
         }
     }
 
