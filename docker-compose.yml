@@ -28,7 +28,8 @@ services:
         - /data/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
 
   grafana:
-      image: grafana/grafana:7.2.2
+      image: grafana/grafana-oss
+      user: "0:0"
       restart: unless-stopped
       ports:
         - "3000:3000"
