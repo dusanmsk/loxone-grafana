@@ -1,21 +1,6 @@
 version: '3'
 
-volumes:
-    influxdb_volume:
-    grafana_volume:
-
 services:
-
-  mosquitto:
-    build: mosquitto
-    restart: unless-stopped
-    ports:
-       - "1883:1883"
-       - "9001:9001"
-
-  node-lox-mqtt-gw:
-    build: node-lox-mqtt-gateway
-    restart: unless-stopped
 
   influxdb:
       image: influxdb:1.8
@@ -25,7 +10,7 @@ services:
         - "8086:8086"
         - "25826:25826/udp"
       volumes:
-        - /data/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
+        - ${DATA_DIR}/influxdb:/var/lib/influxdb
 
   grafana:
       image: grafana/grafana-oss
@@ -34,13 +19,12 @@ services:
       ports:
         - "3000:3000"
       volumes:
-        - /data/docker_volumes/loxone_monitoring/grafana:/var/lib/grafana
+        - ${DATA_DIR}/grafana:/var/lib/grafana
 
-  loxone2influx:
-    build: loxone2influx
+  loxone2influx2:
+    build: loxone2influx2
     restart: unless-stopped
-    environment:
-      - MQTT_ADDRESS=tcp://mosquitto:1883
-      - LOXONE_MQTT_TOPIC_NAME=lox
-      - FIRE_EVEN_NOT_CHANGED_SEC=600    # resend stalled values after specified seconds
-
+    ports:
+      - "2222:2222/udp"
+    env_file:
+      - .env
