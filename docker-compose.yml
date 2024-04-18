@@ -22,7 +22,7 @@ services:
         - ${DATA_DIR}/grafana:/var/lib/grafana
 
   loxone2influx2:
-    build: loxone2influx2
+    image: dusanmsk/loxone2influx2
     restart: unless-stopped
     ports:
       - "2222:2222/udp"
