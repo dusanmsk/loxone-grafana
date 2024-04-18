@@ -31,6 +31,7 @@ services:
     ports:
       - "2222:2222/udp"
     environment:
+      - TZ=Europe/Prague
       - INFLUXDB_HOST=influxdb
       - INFLUXDB_PORT=8086
       - INFLUXDB_DATABASE=loxone
