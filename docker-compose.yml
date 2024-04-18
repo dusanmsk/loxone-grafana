@@ -1,5 +1,9 @@
 version: '3'
 
+volumes:
+  influxdb:
+  grafana:
+
 services:
 
   influxdb:
@@ -10,7 +14,7 @@ services:
         - "8086:8086"
         - "25826:25826/udp"
       volumes:
-        - ${DATA_DIR}/influxdb:/var/lib/influxdb
+        - influxdb:/var/lib/influxdb
 
   grafana:
       image: grafana/grafana-oss
@@ -19,7 +23,7 @@ services:
       ports:
         - "3000:3000"
       volumes:
-        - ${DATA_DIR}/grafana:/var/lib/grafana
+        - grafana:/var/lib/grafana
 
   loxone2influx2:
     image: dusanmsk/loxone2influx2
