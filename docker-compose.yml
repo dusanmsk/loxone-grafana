@@ -30,5 +30,9 @@ services:
     restart: unless-stopped
     ports:
       - "2222:2222/udp"
-    env_file:
-      - .env
+    environment:
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_DATABASE=loxone
+      - BIND_ADDRESS=0.0.0.0
+      - BIND_PORT=2222
