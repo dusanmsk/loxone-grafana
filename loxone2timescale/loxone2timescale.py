@@ -12,8 +12,6 @@ processed_cnt = 0
 timescale_connection = None
 verbose = False
 
-todo presunut postgres sem hore
-
 def get_env_var(name):
     value = os.environ.get(name)
     assert value, f"{name} environment variable is not set."
