@@ -40,8 +40,9 @@ services:
       - timescaledb_volume:/var/lib/postgresql/data
 
   grafana:
-    image: grafana/grafana:7.2.2
+    image: grafana/grafana:11.3.0
     restart: unless-stopped
+    user: "0:0"
     ports:
       - "3000:3000"
     volumes:
