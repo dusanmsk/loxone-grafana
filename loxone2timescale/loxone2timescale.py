@@ -12,6 +12,8 @@ processed_cnt = 0
 timescale_connection = None
 verbose = False
 
+todo presunut postgres sem hore
+
 def get_env_var(name):
     value = os.environ.get(name)
     assert value, f"{name} environment variable is not set."
@@ -135,13 +137,6 @@ timescaledb_password = get_env_var('POSTGRES_PASSWORD')
 timescaledb_dbname = get_env_var('POSTGRES_DBNAME')
 verbose = str2bool(os.environ.get('LOXONE2TIMESCALE_VERBOSE'))
 
-# connect to mqtt
-client = mqtt.Client()
-client.on_connect = mqtt_on_connect
-client.on_message = mqtt_on_message
-client.connect(mqtt_address, mqtt_port)
-client.loop_start()
-
 # connect to timescaledb
 timescale_connection = psycopg2.connect(
     host=timescaledb_host,
@@ -151,6 +146,13 @@ timescale_connection = psycopg2.connect(
     dbname=timescaledb_dbname
 )
 init_database()
+
+# connect to mqtt
+client = mqtt.Client()
+client.on_connect = mqtt_on_connect
+client.on_message = mqtt_on_message
+client.connect(mqtt_address, mqtt_port)
+client.loop_start()
 
 # Keep the script running
 while True:
