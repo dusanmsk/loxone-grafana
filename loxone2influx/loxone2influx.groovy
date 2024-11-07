@@ -17,6 +17,7 @@ class Main {
 
     def FIRE_EVEN_NOT_CHANGED_SEC = System.getenv("FIRE_EVEN_NOT_CHANGED_SEC").toInteger()
     def MQTT_ADDRESS = System.getenv("MQTT_ADDRESS")
+    def MQTT_PORT = System.getenv("MQTT_PORT")
     def LOXONE_MQTT_TOPIC_NAME = System.getenv("LOXONE_MQTT_TOPIC_NAME")
 
     def jsonSlurper = new JsonSlurper()
@@ -40,7 +41,7 @@ class Main {
         influxDB.enableBatch(10, 2, TimeUnit.SECONDS)
         log.info("Connected to influx")
 
-        client = new MqttClient(MQTT_ADDRESS, "mqtt2influx", null)
+        client = new MqttClient("tcp://${MQTT_ADDRESS}:${MQTT_PORT}", "mqtt2influx", null)
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions()
         client.connect(mqttConnectOptions)
 
