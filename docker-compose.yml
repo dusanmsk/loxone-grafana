@@ -28,7 +28,7 @@ services:
       - "8086:8086"
       - "25826:25826/udp"
     volumes:
-      - /data1/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
+      - ${STORAGE_ROOT_PATH}/influxdb:/var/lib/influxdb
       - ./influxdb.conf:/etc/influxdb/influxdb.conf:ro
 
   timescaledb:
@@ -38,8 +38,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - /data1/docker_volumes/loxone_monitoring/timescaledb:/var/lib/postgresql/data        
-      #- timescaledb_volume:/var/lib/postgresql/data
+      - ${STORAGE_ROOT_PATH}/timescaledb:/var/lib/postgresql/data
 
   grafana:
     image: grafana/grafana:11.3.0
@@ -48,8 +47,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /data1/docker_volumes/loxone_monitoring/grafana:/var/lib/grafana
-      #- grafana_volume:/var/lib/grafana
+      - ${STORAGE_ROOT_PATH}/grafana:/var/lib/grafana
 
   loxone2influx:
     build: loxone2influx
