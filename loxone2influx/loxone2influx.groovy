@@ -23,7 +23,10 @@ class Main {
     def jsonSlurper = new JsonSlurper()
     InfluxDB influxDB
     MqttClient client
-    String dbName = "loxone";
+    String INFLUX_DB_NAME = System.getenv("INFLUXDB_NAME");
+    String INFLUXDB_ADDRESS = System.getenv("INFLUXDB_ADDRESS");
+    String INFLUXDB_USER = System.getenv("INFLUXDB_USER");
+    String INFLUXDB_PASSWORD = System.getenv("INFLUXDB_PASSWORD");
 
     def previousValues = [:]
     def fireTimestamps = [:]
@@ -35,9 +38,9 @@ class Main {
         log.info("Connecting to ${MQTT_ADDRESS}")
         log.info("FIRE_EVEN_NOT_CHANGED_SEC=${FIRE_EVEN_NOT_CHANGED_SEC}")
 
-        influxDB = InfluxDBFactory.connect("http://influxdb:8086", "grafana", "grafana")
-        influxDB.createDatabase(dbName)
-        influxDB.setDatabase(dbName)
+        influxDB = InfluxDBFactory.connect(INFLUXDB_ADDRESS, INFLUXDB_USER, INFLUXDB_PASSWORD)
+        influxDB.createDatabase(INFLUX_DB_NAME)
+        influxDB.setDatabase(INFLUX_DB_NAME)
         influxDB.enableBatch(10, 2, TimeUnit.SECONDS)
         log.info("Connected to influx")
 
