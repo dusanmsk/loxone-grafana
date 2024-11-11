@@ -9,7 +9,10 @@ import org.eclipse.paho.client.mqttv3.*
 import org.influxdb.InfluxDB
 import org.influxdb.InfluxDBFactory
 import org.influxdb.dto.Point
-
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import java.util.concurrent.TimeUnit
 
 @Slf4j
@@ -31,8 +34,27 @@ class Main {
     def previousValues = [:]
     def fireTimestamps = [:]
 
+    def configureLogging() {
+        String LOXONE_TO_INFLUX_LOGLEVEL = System.getenv("LOXONE_TO_INFLUX_LOGLEVEL");
+        Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)
+        switch (LOXONE_TO_INFLUX_LOGLEVEL?.toLowerCase()) {
+            case "debug":
+                rootLogger.setLevel(Level.DEBUG)
+                break
+            case "info":
+                rootLogger.setLevel(Level.INFO)
+                break
+            case "warn":
+                rootLogger.setLevel(Level.WARN)
+                break
+            default:
+                rootLogger.setLevel(Level.INFO)
+                break
+        }
+    }
 
     def start() throws Exception {
+        configureLogging()
         refireThread.setDaemon(true)
         refireThread.start()
         log.info("Connecting to ${MQTT_ADDRESS}")
@@ -100,7 +122,7 @@ class Main {
         if (previousValues[topic] != message) {
             fireMessage(topic, message)
         } else {
-            log.info("Skipping ${topic} ${message} ${value_name}")
+            log.debug("Skipping ${topic} ${message} ${value_name}")
         }
     }
 
@@ -122,7 +144,7 @@ class Main {
                 influxDB.write(point.build())
                 fireTimestamps[topic] = now
                 previousValues[topic] = message
-                log.info("Storing ${topic} ${message} ${value_name}")
+                log.debug("Storing ${topic} ${message} ${value_name}")
             }
         } catch (Exception e) {
             log.error("Failed to store to influx", e)

@@ -29,7 +29,7 @@ services:
       - "25826:25826/udp"
     volumes:
       - /data1/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
-      #- influxdb_volume:/var/lib/influxdb
+      - ./influxdb.conf:/etc/influxdb/influxdb.conf:ro
 
   timescaledb:
     image: timescale/timescaledb:latest-pg14
