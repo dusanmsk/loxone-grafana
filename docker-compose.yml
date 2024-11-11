@@ -1,9 +1,9 @@
 version: '3'
 
-volumes:
-    influxdb_volume:
-    grafana_volume:
-    timescaledb_volume:
+# volumes:
+#     influxdb_volume:
+#     grafana_volume:
+#     timescaledb_volume:
 
 services:
 
@@ -17,6 +17,8 @@ services:
   node-lox-mqtt-gw:
     build: node-lox-mqtt-gateway
     restart: unless-stopped
+    env_file:
+      - .env
 
   influxdb:
     image: influxdb:1.8
@@ -26,8 +28,8 @@ services:
       - "8086:8086"
       - "25826:25826/udp"
     volumes:
-      #- /data/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
-      - influxdb_volume:/var/lib/influxdb
+      - /data1/docker_volumes/loxone_monitoring/influxdb:/var/lib/influxdb
+      #- influxdb_volume:/var/lib/influxdb
 
   timescaledb:
     image: timescale/timescaledb:latest-pg14
@@ -36,8 +38,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      #- /data/docker_volumes/loxone_monitoring/timescaledb:/var/lib/postgresql/data        
-      - timescaledb_volume:/var/lib/postgresql/data
+      - /data1/docker_volumes/loxone_monitoring/timescaledb:/var/lib/postgresql/data        
+      #- timescaledb_volume:/var/lib/postgresql/data
 
   grafana:
     image: grafana/grafana:11.3.0
@@ -46,8 +48,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      #- /data/docker_volumes/loxone_monitoring/grafana:/var/lib/grafana
-      - grafana_volume:/var/lib/grafana
+      - /data1/docker_volumes/loxone_monitoring/grafana:/var/lib/grafana
+      #- grafana_volume:/var/lib/grafana
 
   loxone2influx:
     build: loxone2influx
