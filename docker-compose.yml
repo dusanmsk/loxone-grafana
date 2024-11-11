@@ -1,9 +1,4 @@
-version: '3'
-
-# volumes:
-#     influxdb_volume:
-#     grafana_volume:
-#     timescaledb_volume:
+version: '3.3'
 
 services:
 
@@ -14,7 +9,7 @@ services:
        - "1883:1883"
        - "9001:9001"
 
-  node-lox-mqtt-gw:
+  node-lox-mqtt-gateway:
     build: node-lox-mqtt-gateway
     restart: unless-stopped
     env_file:
