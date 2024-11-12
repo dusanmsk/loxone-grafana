@@ -1,3 +1,6 @@
+from datetime import timedelta
+import logging
+import threading, datetime
 from str2bool import str2bool
 import os, sys
 from time import sleep
@@ -6,33 +9,50 @@ import json
 import re
 import psycopg2
 
+flush_interval=10
 
 err_cnt = 0
 processed_cnt = 0
 timescale_connection = None
 verbose = False
+timescale_cache = []
+last_flush_time = datetime.datetime.now()
+
+logging.info("Starting loxone2timescale")
 
 def get_env_var(name):
     value = os.environ.get(name)
     assert value, f"{name} environment variable is not set."
     return value
 
+def flush_cache():
+    global timescale_cache
+    logging.info("flush1")
+    if timescale_cache:
+        cursor = timescale_connection.cursor()
+        for timestamp, measurement_name, value_name, value in timescale_cache:
+            if isinstance(value, (int, float)):
+                cursor.execute("""
+                    INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
+                    VALUES (%s, %s, %s, %s, NULL)
+                """, (timestamp, measurement_name, value_name, value))
+            else:
+                cursor.execute("""
+                    INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
+                    VALUES (%s, %s, %s, NULL, %s)
+                """, (timestamp, measurement_name, value_name, value))
+        timescale_connection.commit()
+        cursor.close()
+        timescale_cache.clear()
 
-# todo prerobit to tak, ze sa budu nazbierane measurementy cachovat a posielat v batchoch kazdych 10 sec
+
 def insert_to_timescaledb(measurement_name, value_name, value):
-    cursor = timescale_connection.cursor()
-    if isinstance(value, (int, float)):
-        cursor.execute("""
-            INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-            VALUES (NOW(), %s, %s, %s, NULL)
-        """, (measurement_name, value_name, value))
-    else:
-        cursor.execute("""
-            INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-            VALUES (NOW(), %s, %s, NULL, %s)
-        """, (measurement_name, value_name, value))
-    timescale_connection.commit()
-    cursor.close()
+    global last_flush_time
+    now = datetime.datetime.now()
+    timescale_cache.append((now, measurement_name, value_name, value))
+    if last_flush_time + timedelta(seconds=flush_interval) < now:
+        flush_cache()
+        last_flush_time = now
 
 # prevedie hodnotu na cislo alebo string. U hodnot kde je cislo a string (napriklad "1.0 kW") sa pokusi extrahovat 1.0 ako cislo
 def fix_value(value):
@@ -66,13 +86,13 @@ def get_measurement_name(topic, loxone_mqtt_topic_name):
     return s
 
 
-def mqtt_on_connect(client, userdata, flags, rc):
+def mqtt_on_connect(client, userdata, flags, rc, properties):
     if rc == 0:
-        print("Connected to MQTT broker")
+        logging.info("Connected to MQTT broker")
         # Subscribe to the LOXONE_MQTT_TOPIC_NAME
         client.subscribe(f"{loxone_mqtt_topic_name}/#")
     else:
-        print("Failed to connect to MQTT broker")
+        logging.error("Failed to connect to MQTT broker")
         sys.exit(1)
 
 def mqtt_on_message(client, userdata, msg):
@@ -82,13 +102,12 @@ def mqtt_on_message(client, userdata, msg):
         data = json.loads(payload)
         for key, value in data.items():
             fixed_value = fix_value(value)
-            if verbose:
-                print(f"{measurement_name} -  Key: {key}, Value: {value}, Fixed value: {fixed_value}")
+            logging.debug(f"{measurement_name} -  Key: {key}, Value: {value}, Fixed value: {fixed_value}")
             insert_to_timescaledb(measurement_name, key, fixed_value)
         global processed_cnt
         processed_cnt += 1
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
         global err_cnt
         err_cnt = err_cnt + 1
 
@@ -121,7 +140,7 @@ def init_database():
 
 def print_progress():
     global processed_cnt, err_cnt
-    print(f"Processed {processed_cnt} messages, errors: {err_cnt}")        
+    logging.info(f"Processed {processed_cnt} messages, errors: {err_cnt}")        
 
 
 # read environment variables
@@ -135,26 +154,46 @@ timescaledb_password = get_env_var('POSTGRES_PASSWORD')
 timescaledb_dbname = get_env_var('POSTGRES_DBNAME')
 verbose = str2bool(os.environ.get('LOXONE2TIMESCALE_VERBOSE'))
 
+if verbose:
+    logging.basicConfig(level=logging.DEBUG)
+else:    
+    logging.basicConfig(level=logging.INFO)
+
 # connect to timescaledb
-timescale_connection = psycopg2.connect(
-    host=timescaledb_host,
-    port=timescaledb_port,
-    user=timescaledb_user,
-    password=timescaledb_password,
-    dbname=timescaledb_dbname
-)
-init_database()
+try:
+    logging.info("Connecting to timescaledb")
+    timescale_connection = psycopg2.connect(
+        host=timescaledb_host,
+        port=timescaledb_port,
+        user=timescaledb_user,
+        password=timescaledb_password,
+        dbname=timescaledb_dbname
+    )
+    init_database()
+except Exception as e:
+    logging.error(f"Failed to connect to timescaledb: {e}")
+    sys.exit(1)
 
 # connect to mqtt
-client = mqtt.Client()
-client.on_connect = mqtt_on_connect
-client.on_message = mqtt_on_message
-client.connect(mqtt_address, mqtt_port)
-client.loop_start()
+try:
+    logging.info("Connecting to mqtt\n")
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_connect = mqtt_on_connect
+    client.on_message = mqtt_on_message
+    if(verbose):
+        client.enable_logger()
+    client.connect(mqtt_address, mqtt_port)
+    logging.info("Starting MQTT loop")
+    client.loop_start()
 
-# Keep the script running
-while True:
-    print_progress()
-    sleep(60)
-    pass
+    logging.info("Entering main loop")
+
+    # Keep the script running
+    while True:
+        print_progress()
+        sleep(5)
+        pass
+except Exception as e:
+    logging.error(f"Failed to connect to mqtt: {e}")
+    sys.exit(1)
 
