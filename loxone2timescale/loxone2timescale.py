@@ -16,7 +16,6 @@ progress_interval=60
 err_cnt = 0
 processed_cnt = 0
 timescale_connection = None
-verbose = False
 timescale_cache = []
 last_flush_time = datetime.datetime.now()
 
@@ -143,6 +142,24 @@ def print_progress():
     logging.info(f"Processed {processed_cnt} messages, errors: {err_cnt}")        
 
 
+def getLogLevel():
+    level=os.getenv('LOXONE2TIMESCALE_LOGLEVEL', 'info')
+    if level == 'debug':
+        return logging.DEBUG
+    elif level == 'info':
+        return logging.INFO
+    elif level == 'warning':
+        return logging.WARNING
+    elif level == 'error':
+        return logging.ERROR
+    elif level == 'critical':
+        return logging.CRITICAL
+    else:
+        return logging.INFO
+
+# set logging level
+logging.basicConfig(level=getLogLevel(), format='%(asctime)s - %(levelname)s - %(message)s')
+
 # read environment variables
 mqtt_address = get_env_var('MQTT_ADDRESS')
 mqtt_port = int(get_env_var('MQTT_PORT'))
@@ -152,12 +169,6 @@ timescaledb_port = get_env_var('POSTGRES_PORT')
 timescaledb_user = get_env_var('POSTGRES_USER')
 timescaledb_password = get_env_var('POSTGRES_PASSWORD')
 timescaledb_dbname = get_env_var('POSTGRES_DBNAME')
-verbose = str2bool(os.environ.get('LOXONE2TIMESCALE_VERBOSE'))
-
-if verbose:
-    logging.basicConfig(level=logging.DEBUG)
-else:    
-    logging.basicConfig(level=logging.INFO)
 
 logging.info("Starting loxone2timescale")
 time.sleep(5)
@@ -183,7 +194,7 @@ try:
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = mqtt_on_connect
     client.on_message = mqtt_on_message
-    if(verbose):
+    if(getLogLevel() <= logging.INFO):
         client.enable_logger()
     client.connect(mqtt_address, mqtt_port)
     logging.info("Starting MQTT loop")
