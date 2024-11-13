@@ -27,7 +27,7 @@ def get_env_var(name):
 
 def flush_cache():
     global timescale_cache
-    logging.info("flush1")
+    logging.debug("flushing {} records".format(len(timescale_cache)))
     if timescale_cache:
         cursor = timescale_connection.cursor()
         for timestamp, measurement_name, value_name, value in timescale_cache:
