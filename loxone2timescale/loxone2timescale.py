@@ -10,12 +10,14 @@ import json
 import re
 import psycopg2
 
-flush_interval=10
-progress_interval=60
+flush_interval=10           # 10
+progress_interval=60        # 60
+reconnect_interval=30       # 30
 
 err_cnt = 0
 processed_cnt = 0
 timescale_connection = None
+mqtt_client = None
 timescale_cache = []
 last_flush_time = datetime.datetime.now()
 
@@ -24,25 +26,83 @@ def get_env_var(name):
     assert value, f"{name} environment variable is not set."
     return value
 
+def getLogLevel():
+    level=str(os.getenv('LOXONE2TIMESCALE_LOGLEVEL', 'info')).lower()
+    if level == 'debug':
+        return logging.DEBUG
+    elif level == 'info':
+        return logging.INFO
+    elif level == 'warning':
+        return logging.WARNING
+    elif level == 'error':
+        return logging.ERROR
+    elif level == 'critical':
+        return logging.CRITICAL
+    else:
+        return logging.INFO
+
+# set logging level
+logging.basicConfig(level=getLogLevel(), format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+# read environment variables
+mqtt_address = get_env_var('MQTT_ADDRESS')
+mqtt_port = int(get_env_var('MQTT_PORT'))
+loxone_mqtt_topic_name = get_env_var('LOXONE_MQTT_TOPIC_NAME')
+timescaledb_host = get_env_var('POSTGRES_HOST')
+timescaledb_port = get_env_var('POSTGRES_PORT')
+timescaledb_user = get_env_var('POSTGRES_USER')
+timescaledb_password = get_env_var('POSTGRES_PASSWORD')
+timescaledb_dbname = get_env_var('POSTGRES_DBNAME')
+
+
+# debug
+#timescaledb_host = "localhost"
+#mqtt_address = "localhost"
+
+def connectToTimescale():
+    global timescale_connection
+    # connect to timescaledb
+    try:
+        logging.info("Connecting to timescaledb")
+        timescale_connection = psycopg2.connect(
+            host=timescaledb_host,
+            port=timescaledb_port,
+            user=timescaledb_user,
+            password=timescaledb_password,
+            dbname=timescaledb_dbname
+        )
+        init_database()
+        logging.info("Connected to timescaledb")
+    except Exception as e:
+        timescale_connection = None
+        logging.error(f"Failed to connect to timescaledb: {e}")
+        raise e
+
+
 def flush_cache():
-    global timescale_cache
-    logging.debug("flushing {} records".format(len(timescale_cache)))
+    global timescale_cache, timescale_connection, err_cnt
     if timescale_cache:
-        cursor = timescale_connection.cursor()
-        for timestamp, measurement_name, value_name, value in timescale_cache:
-            if isinstance(value, (int, float)):
-                cursor.execute("""
-                    INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-                    VALUES (%s, %s, %s, %s, NULL)
-                """, (timestamp, measurement_name, value_name, value))
-            else:
-                cursor.execute("""
-                    INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-                    VALUES (%s, %s, %s, NULL, %s)
-                """, (timestamp, measurement_name, value_name, value))
-        timescale_connection.commit()
-        cursor.close()
-        timescale_cache.clear()
+        try:
+            logging.debug("flushing {} records".format(len(timescale_cache)))
+            cursor = timescale_connection.cursor()
+            for timestamp, measurement_name, value_name, value in timescale_cache:
+                if isinstance(value, (int, float)):
+                    cursor.execute("""
+                        INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
+                        VALUES (%s, %s, %s, %s, NULL)
+                    """, (timestamp, measurement_name, value_name, value))
+                else:
+                    cursor.execute("""
+                        INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
+                        VALUES (%s, %s, %s, NULL, %s)
+                    """, (timestamp, measurement_name, value_name, value))
+            timescale_connection.commit()
+            cursor.close()
+            timescale_cache.clear()
+        except Exception as e:
+            logging.error(f"Failed to insert data to timescaledb: {e}.")
+            err_cnt += 1
 
 
 def insert_to_timescaledb(measurement_name, value_name, value):
@@ -110,6 +170,10 @@ def mqtt_on_message(client, userdata, msg):
         global err_cnt
         err_cnt = err_cnt + 1
 
+def mqtt_on_disconnect(a, b, c, rc, e):
+    logging.error(f"Disconnected from MQTT broker with code {rc}")
+
+
 def init_database():
     cursor = timescale_connection.cursor()
     cursor.execute(f"""
@@ -139,66 +203,42 @@ def init_database():
 
 def print_progress():
     global processed_cnt, err_cnt
-    logging.info(f"Processed {processed_cnt} messages, errors: {err_cnt}")        
+    logging.info(f"Processed {processed_cnt} messages, errors: {err_cnt}, cache size: {len(timescale_cache)}")        
 
 
-def getLogLevel():
-    level=os.getenv('LOXONE2TIMESCALE_LOGLEVEL', 'info')
-    if level == 'debug':
-        return logging.DEBUG
-    elif level == 'info':
-        return logging.INFO
-    elif level == 'warning':
-        return logging.WARNING
-    elif level == 'error':
-        return logging.ERROR
-    elif level == 'critical':
-        return logging.CRITICAL
-    else:
-        return logging.INFO
 
-# set logging level
-logging.basicConfig(level=getLogLevel(), format='%(asctime)s - %(levelname)s - %(message)s')
-
-# read environment variables
-mqtt_address = get_env_var('MQTT_ADDRESS')
-mqtt_port = int(get_env_var('MQTT_PORT'))
-loxone_mqtt_topic_name = get_env_var('LOXONE_MQTT_TOPIC_NAME')
-timescaledb_host = get_env_var('POSTGRES_HOST')
-timescaledb_port = get_env_var('POSTGRES_PORT')
-timescaledb_user = get_env_var('POSTGRES_USER')
-timescaledb_password = get_env_var('POSTGRES_PASSWORD')
-timescaledb_dbname = get_env_var('POSTGRES_DBNAME')
 
 logging.info("Starting loxone2timescale")
-time.sleep(5)
 
-# connect to timescaledb
-try:
-    logging.info("Connecting to timescaledb")
-    timescale_connection = psycopg2.connect(
-        host=timescaledb_host,
-        port=timescaledb_port,
-        user=timescaledb_user,
-        password=timescaledb_password,
-        dbname=timescaledb_dbname
-    )
-    init_database()
-except Exception as e:
-    logging.error(f"Failed to connect to timescaledb: {e}")
-    sys.exit(1)
+def reconnect_handler():
+    global timescale_connection
+    while True:
+        try:
+            if timescale_connection is None or timescale_connection.closed:
+                connectToTimescale()
+            sleep(reconnect_interval)
+        except Exception as e:
+            logging.error(f"Failed to reconnect to timescaledb: {e}")
+            sleep(reconnect_interval)
+            
+
+# start a separate thread for reconnecting to timescaledb
+reconnect_thread = threading.Thread(target=reconnect_handler)
+reconnect_thread.start()    
 
 # connect to mqtt
 try:
     logging.info("Connecting to mqtt\n")
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_connect = mqtt_on_connect
-    client.on_message = mqtt_on_message
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqtt_client.reconnect_delay_set(min_delay=1, max_delay=120)
+    mqtt_client.on_connect = mqtt_on_connect
+    mqtt_client.on_message = mqtt_on_message
+    mqtt_client.on_disconnect = mqtt_on_disconnect
     if(getLogLevel() <= logging.INFO):
-        client.enable_logger()
-    client.connect(mqtt_address, mqtt_port)
+        mqtt_client.enable_logger()
+    mqtt_client.connect(mqtt_address, mqtt_port)
     logging.info("Starting MQTT loop")
-    client.loop_start()
+    mqtt_client.loop_start()
 
     logging.info("Entering main loop")
 
