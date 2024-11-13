@@ -1,3 +1,4 @@
+import time
 from datetime import timedelta
 import logging
 import threading, datetime
@@ -10,6 +11,7 @@ import re
 import psycopg2
 
 flush_interval=10
+progress_interval=60
 
 err_cnt = 0
 processed_cnt = 0
@@ -17,8 +19,6 @@ timescale_connection = None
 verbose = False
 timescale_cache = []
 last_flush_time = datetime.datetime.now()
-
-logging.info("Starting loxone2timescale")
 
 def get_env_var(name):
     value = os.environ.get(name)
@@ -159,6 +159,9 @@ if verbose:
 else:    
     logging.basicConfig(level=logging.INFO)
 
+logging.info("Starting loxone2timescale")
+time.sleep(5)
+
 # connect to timescaledb
 try:
     logging.info("Connecting to timescaledb")
@@ -191,7 +194,7 @@ try:
     # Keep the script running
     while True:
         print_progress()
-        sleep(5)
+        sleep(progress_interval)
         pass
 except Exception as e:
     logging.error(f"Failed to connect to mqtt: {e}")
