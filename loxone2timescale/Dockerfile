@@ -3,6 +3,9 @@ FROM python:3-slim
 
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
-COPY loxone2timescale.py /
+#RUN apt-get update && apt-get install -y python3-debugpy
+RUN mkdir -p /app
+COPY run.sh /app
+COPY loxone2timescale.py /app
 
-ENTRYPOINT [ "python3", "/loxone2timescale.py" ]
+ENTRYPOINT [ "/app/run.sh" ]
