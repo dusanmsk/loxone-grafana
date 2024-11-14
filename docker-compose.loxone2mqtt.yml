@@ -1,0 +1,16 @@
+version: '3.3'
+
+services:
+
+  mosquitto:
+    build: loxone2mqtt/mosquitto
+    restart: unless-stopped
+    ports:
+       - "1883:1883"
+       - "9001:9001"
+
+  node-lox-mqtt-gateway:
+    build: loxone2mqtt/node-lox-mqtt-gateway
+    restart: unless-stopped
+    env_file:
+      - .env

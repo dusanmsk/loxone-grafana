@@ -1,0 +1,20 @@
+version: '3.3'
+
+services:
+
+  influxdb:
+    image: influxdb:1.8
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "25826:25826/udp"
+    volumes:
+      - ${STORAGE_ROOT_PATH}/influxdb:/var/lib/influxdb
+      - ./influxdb/influxdb.conf:/etc/influxdb/influxdb.conf:ro
+
+  loxone2influx:
+    build: influxdb/loxone2influx
+    restart: unless-stopped
+    env_file:
+      - .env

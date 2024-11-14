@@ -27,7 +27,9 @@ class Main {
     InfluxDB influxDB
     MqttClient client
     String INFLUX_DB_NAME = System.getenv("INFLUXDB_NAME");
-    String INFLUXDB_ADDRESS = System.getenv("INFLUXDB_ADDRESS");
+    String INFLUXDB_HOST = System.getenv("INFLUXDB_HOST");
+    String INFLUXDB_PORT = System.getenv("INFLUXDB_PORT");
+    String INFLUXDB_ADDRESS = "http://${INFLUXDB_HOST}:${INFLUXDB_PORT}";
     String INFLUXDB_USER = System.getenv("INFLUXDB_USER");
     String INFLUXDB_PASSWORD = System.getenv("INFLUXDB_PASSWORD");
 
