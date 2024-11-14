@@ -59,7 +59,7 @@ class Main {
         configureLogging()
         refireThread.setDaemon(true)
         refireThread.start()
-        log.info("Connecting to ${MQTT_ADDRESS}")
+        log.info("Connecting to influx at ${INFUXDB_ADDRESS}")
         log.info("FIRE_EVEN_NOT_CHANGED_SEC=${FIRE_EVEN_NOT_CHANGED_SEC}")
 
         influxDB = InfluxDBFactory.connect(INFLUXDB_ADDRESS, INFLUXDB_USER, INFLUXDB_PASSWORD)
