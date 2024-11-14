@@ -199,7 +199,9 @@ def init_database():
                         
             ALTER TABLE loxone_measurements
                 ADD CONSTRAINT unique_measurement UNIQUE (timestamp, measurement_name, value_name);
-
+                       
+            ALTER TABLE loxone_measurements SET (timescaledb.compress);
+            SELECT add_compression_policy('loxone_measurements', compress_after => INTERVAL '365d');                       
         """)
         
         timescale_connection.commit()
