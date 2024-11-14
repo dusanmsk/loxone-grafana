@@ -10,10 +10,6 @@ influxdb_password = 'grafana'
 influxdb_dbname = 'loxone'
 
 
-# TODO
-
-# pri migracii to robit dvojkrokovo, najprv zmigrovat vsetky measurementy 2 mesiace stare a potom zvysok
-
 from influxdb import InfluxDBClient
 import requests
 import os
@@ -54,9 +50,10 @@ class ProgressStorage:
 # Function to write data to TimescaleDB
 def write_to_timescaledb(measurement_name, timescale_data):
     insert_query = """
-    INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-    VALUES %s on conflict do nothing;
+        INSERT INTO _loxone_measurements (timestamp, measurement_name_id, value_name, value, value_str) VALUES %s
+            ON CONFLICT DO NOTHING;
     """
+
     timescale_conn2 = psycopg2.connect(
         host=timescaledb_host,
         port=timescaledb_port,
@@ -66,6 +63,15 @@ def write_to_timescaledb(measurement_name, timescale_data):
     )
     timescale_cursor2 = timescale_conn2.cursor()
     timescale_cursor2.execute("SET synchronous_commit TO OFF;")
+    # transform measurement name to measurement_name_id
+    timescale_cursor2.execute("""
+        INSERT INTO loxone_measurement_names (measurement_name) VALUES (%s) on conflict do nothing;
+        COMMIT;
+    """, (measurement_name,))
+    timescale_cursor2.execute("""SELECT id FROM loxone_measurement_names WHERE measurement_name = %s""", (measurement_name,))
+    measurement_name_id = timescale_cursor2.fetchone()[0]
+    # transform data to be inserted and add measurement_name_id
+    timescale_data = [(timestamp, measurement_name_id, value_name, value, value_str) for timestamp, value_name, value, value_str in timescale_data]
     #tprint(f"Inserting data into TimescaleDB measurement {measurement_name}")
     execute_values(timescale_cursor2, insert_query, timescale_data, page_size=batch_size)
     timescale_conn2.commit()
@@ -79,7 +85,7 @@ def split_batches(data, batch_size):
         yield data[i:i + batch_size]
 
 
-# Initialize TimescaleDB and create hypertable
+# connect to TimescaleDB 
 timescale_conn = psycopg2.connect(
     host=timescaledb_host,
     port=timescaledb_port,
@@ -88,31 +94,6 @@ timescale_conn = psycopg2.connect(
     dbname=timescaledb_dbname
 )
 timescale_cursor = timescale_conn.cursor()
-# timescale_cursor.execute(f"""
-#     SELECT EXISTS (
-#         SELECT 1 
-#         FROM pg_tables
-#         WHERE schemaname = 'public' AND tablename = 'loxone_measurements'
-#     );
-# """)
-
-# table_exists = timescale_cursor.fetchone()[0]
-# if not table_exists:
-#     tprint("Creating TimescaleDB hypertable...")
-#     timescale_cursor.execute("""
-#     CREATE TABLE IF NOT EXISTS loxone_measurements (
-#         timestamp TIMESTAMPTZ NOT NULL,
-#         measurement_name TEXT NOT NULL,
-#         value_name TEXT NOT NULL,
-#         value DOUBLE PRECISION,
-#         value_str TEXT
-#     );
-#     SELECT create_hypertable('loxone_measurements', 'timestamp', if_not_exists => TRUE);
-#     create index if not exists idx_measurement_name_value_name on loxone_measurements(measurement_name, value_name);
-#     """)
-#     timescale_conn.commit()
-
-timescale_conn.commit()
 
 tprint("Selecting already migrated measurements...")
 progressStorage = ProgressStorage()
@@ -133,7 +114,8 @@ tprint("Starting data migration...")
 measurements = influx_client.get_list_measurements()
 remaining_measurements = len(measurements)
 
-def convert_to_timescale_data(measurement_name, results):
+# create list of (timestamp, field_name, field_value, field_value_str)
+def convert_to_timescale_data(results):
     timescale_data = []
     for point in results.get_points():
         timestamp = point['time']
@@ -141,9 +123,9 @@ def convert_to_timescale_data(measurement_name, results):
         tags = {k: v for k, v in point.items() if k not in fields and k not in ['time', 'measurement']}
         for field_name, field_value in fields.items():
             if isinstance(field_value, (int, float)):
-                timescale_data.append((timestamp, measurement_name, field_name, field_value, None))
+                timescale_data.append((timestamp, field_name, field_value, None))
             else:
-                timescale_data.append((timestamp, measurement_name, field_name, None, field_value))
+                timescale_data.append((timestamp, field_name, None, field_value))
     return timescale_data
 
 # Function to migrate a measurement
@@ -168,7 +150,7 @@ def migrate_measurement(measurement):
             query = f'SELECT * FROM "{measurement_name}" LIMIT {batch_size} OFFSET {start_offset}'
             # tprint(f"   Executing query: {query}")
             results = influx_client2.query(query)
-            timescale_data = convert_to_timescale_data(measurement_name, results)
+            timescale_data = convert_to_timescale_data(results)
             if(len(timescale_data) == 0):
                 break
             write_to_timescaledb(measurement_name, timescale_data)

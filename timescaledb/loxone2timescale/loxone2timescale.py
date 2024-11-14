@@ -79,6 +79,27 @@ def connectToTimescale():
         logging.error(f"Failed to connect to timescaledb: {e}")
         raise e
 
+# name:id
+measurement_names_cache = {}
+def insert_measurement(cursor, timestamp, measurement_name, value_name, value):
+    global measurement_names_cache
+    if measurement_name not in measurement_names_cache:
+        cursor.execute("""
+            INSERT INTO loxone_measurement_names (measurement_name) VALUES (%s) on conflict do nothing
+        """, (measurement_name,))
+        cursor.execute("""SELECT id FROM loxone_measurement_names WHERE measurement_name = %s""", (measurement_name,))
+        measurement_names_cache[measurement_name] = cursor.fetchone()[0]
+    measurement_id=measurement_names_cache[measurement_name]
+    if isinstance(value, (int, float)):
+        cursor.execute("""
+            INSERT INTO _loxone_measurements (timestamp, measurement_name_id, value_name, value, value_str)
+            VALUES (%s, %s, %s, %s, NULL)
+        """, (timestamp, measurement_id, value_name, value))
+    else:
+        cursor.execute("""
+            INSERT INTO _loxone_measurements (timestamp, measurement_name_id, value_name, value, value_str)
+            VALUES (%s, %s, %s, NULL, %s)
+        """, (timestamp, measurement_id, value_name, value))
 
 def flush_cache():
     global timescale_cache, timescale_connection, err_cnt
@@ -87,16 +108,7 @@ def flush_cache():
             logging.debug("flushing {} records".format(len(timescale_cache)))
             cursor = timescale_connection.cursor()
             for timestamp, measurement_name, value_name, value in timescale_cache:
-                if isinstance(value, (int, float)):
-                    cursor.execute("""
-                        INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-                        VALUES (%s, %s, %s, %s, NULL)
-                    """, (timestamp, measurement_name, value_name, value))
-                else:
-                    cursor.execute("""
-                        INSERT INTO loxone_measurements (timestamp, measurement_name, value_name, value, value_str)
-                        VALUES (%s, %s, %s, NULL, %s)
-                    """, (timestamp, measurement_name, value_name, value))
+                insert_measurement(cursor, timestamp, measurement_name, value_name, value)
             timescale_connection.commit()
             cursor.close()
             timescale_cache.clear()
@@ -180,30 +192,39 @@ def init_database():
         SELECT EXISTS (
             SELECT 1 
             FROM pg_tables
-            WHERE schemaname = 'public' AND tablename = 'loxone_measurements'
+            WHERE schemaname = 'public' AND tablename = '_loxone_measurements'
         );
     """)
 
     table_exists = cursor.fetchone()[0]
     if not table_exists:
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS loxone_measurements (
-                timestamp TIMESTAMPTZ NOT NULL,
-                measurement_name TEXT NOT NULL,
-                value_name TEXT NOT NULL,
-                value DOUBLE PRECISION,
-                value_str TEXT
+            CREATE TABLE IF NOT EXISTS loxone_measurement_names
+            (
+                id SERIAL PRIMARY KEY,
+                measurement_name TEXT NOT NULL UNIQUE
             );
-            SELECT create_hypertable('loxone_measurements', 'timestamp', if_not_exists => TRUE);
-            create index if not exists idx_measurement_name_value_name on loxone_measurements(measurement_name, value_name);
-                        
-            ALTER TABLE loxone_measurements
-                ADD CONSTRAINT unique_measurement UNIQUE (timestamp, measurement_name, value_name);
+            CREATE TABLE IF NOT EXISTS _loxone_measurements (
+                                                            timestamp TIMESTAMPTZ NOT NULL,
+                                                            measurement_name_id SMALLINT NOT NULL REFERENCES loxone_measurement_names(id),
+                                                            value_name TEXT NOT NULL,
+                                                            value DOUBLE PRECISION,
+                                                            value_str TEXT
+            );
+
+            SELECT create_hypertable('_loxone_measurements', 'timestamp', if_not_exists => TRUE);
+            ALTER TABLE _loxone_measurements
+                ADD CONSTRAINT unique_measurement UNIQUE (timestamp, measurement_name_id, value_name);
+
+            -- TODO indexes
+
+            create view loxone_measurements as
+                select timestamp, lmn.measurement_name, value_name, value, value_str from _loxone_measurements inner join loxone_measurement_names lmn on _loxone_measurements.measurement_name_id = lmn.id;
                        
-            ALTER TABLE loxone_measurements SET (timescaledb.compress);
-            SELECT add_compression_policy('loxone_measurements', compress_after => INTERVAL '365d');                       
+            ALTER TABLE _loxone_measurements SET (timescaledb.compress);
+            SELECT add_compression_policy('_loxone_measurements', compress_after => INTERVAL '365d');
+
         """)
-        
         timescale_connection.commit()
         cursor.close()
 
@@ -211,10 +232,6 @@ def init_database():
 def print_progress():
     global processed_cnt, err_cnt
     logging.info(f"Processed {processed_cnt} messages, errors: {err_cnt}, cache size: {len(timescale_cache)}")        
-
-
-
-
 
 
 def reconnect_handler():
