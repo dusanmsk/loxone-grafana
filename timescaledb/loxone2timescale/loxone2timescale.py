@@ -187,16 +187,21 @@ def init_database():
     table_exists = cursor.fetchone()[0]
     if not table_exists:
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS loxone_measurements (
-            timestamp TIMESTAMPTZ NOT NULL,
-            measurement_name TEXT NOT NULL,
-            value_name TEXT NOT NULL,
-            value DOUBLE PRECISION,
-            value_str TEXT
-        );
-        SELECT create_hypertable('loxone_measurements', 'timestamp', if_not_exists => TRUE);
-        create index if not exists idx_measurement_name_value_name on loxone_measurements(measurement_name, value_name);
+            CREATE TABLE IF NOT EXISTS loxone_measurements (
+                timestamp TIMESTAMPTZ NOT NULL,
+                measurement_name TEXT NOT NULL,
+                value_name TEXT NOT NULL,
+                value DOUBLE PRECISION,
+                value_str TEXT
+            );
+            SELECT create_hypertable('loxone_measurements', 'timestamp', if_not_exists => TRUE);
+            create index if not exists idx_measurement_name_value_name on loxone_measurements(measurement_name, value_name);
+                        
+            ALTER TABLE loxone_measurements
+                ADD CONSTRAINT unique_measurement UNIQUE (timestamp, measurement_name, value_name);
+
         """)
+        
         timescale_connection.commit()
         cursor.close()
 
@@ -208,7 +213,7 @@ def print_progress():
 
 
 
-logging.info("Starting loxone2timescale")
+
 
 def reconnect_handler():
     global timescale_connection
@@ -222,32 +227,37 @@ def reconnect_handler():
             sleep(reconnect_interval)
             
 
-# start a separate thread for reconnecting to timescaledb
-reconnect_thread = threading.Thread(target=reconnect_handler)
-reconnect_thread.start()    
 
-# connect to mqtt
-try:
-    logging.info("Connecting to mqtt\n")
-    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    mqtt_client.reconnect_delay_set(min_delay=1, max_delay=120)
-    mqtt_client.on_connect = mqtt_on_connect
-    mqtt_client.on_message = mqtt_on_message
-    mqtt_client.on_disconnect = mqtt_on_disconnect
-    if(getLogLevel() <= logging.INFO):
-        mqtt_client.enable_logger()
-    mqtt_client.connect(mqtt_address, mqtt_port)
-    logging.info("Starting MQTT loop")
-    mqtt_client.loop_start()
+def main():
+    logging.info("Starting loxone2timescale")
+    # start a separate thread for reconnecting to timescaledb
+    reconnect_thread = threading.Thread(target=reconnect_handler)
+    reconnect_thread.start()    
 
-    logging.info("Entering main loop")
+    # connect to mqtt
+    try:
+        logging.info("Connecting to mqtt\n")
+        mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        mqtt_client.reconnect_delay_set(min_delay=1, max_delay=120)
+        mqtt_client.on_connect = mqtt_on_connect
+        mqtt_client.on_message = mqtt_on_message
+        mqtt_client.on_disconnect = mqtt_on_disconnect
+        if(getLogLevel() <= logging.INFO):
+            mqtt_client.enable_logger()
+        mqtt_client.connect(mqtt_address, mqtt_port)
+        logging.info("Starting MQTT loop")
+        mqtt_client.loop_start()
 
-    # Keep the script running
-    while True:
-        print_progress()
-        sleep(progress_interval)
-        pass
-except Exception as e:
-    logging.error(f"Failed to connect to mqtt: {e}")
-    sys.exit(1)
+        logging.info("Entering main loop")
 
+        # Keep the script running
+        while True:
+            print_progress()
+            sleep(progress_interval)
+            pass
+    except Exception as e:
+        logging.error(f"Failed to connect to mqtt: {e}")
+        sys.exit(1)
+
+
+main()

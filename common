@@ -1,0 +1,22 @@
+# common functions for run scripts
+
+function get_compose_files() {
+    source .env
+    docker_compose_files=""
+    if [ "$LOXONE2MQTT_ENABLED" == "true" ]; then
+        docker_compose_files="$docker_compose_files -f docker-compose.loxone2mqtt.yml"
+    fi
+    if [ "$INFLUXDB_ENABLED" == "true" ]; then
+        docker_compose_files="$docker_compose_files -f docker-compose.influxdb.yml"
+    fi
+    if [ "$TIMESCALEDB_ENABLED" == "true" ]; then
+        docker_compose_files="$docker_compose_files -f docker-compose.timescaledb.yml"
+    fi
+    if [ "$GRAFANA_ENABLED" == "true" ]; then
+        docker_compose_files="$docker_compose_files -f docker-compose.grafana.yml"
+    fi
+    if [ "$PGADMIN_ENABLED" == "true" ]; then
+        docker_compose_files="$docker_compose_files -f docker-compose.pgadmin.yml"
+    fi
+    echo $docker_compose_files
+}

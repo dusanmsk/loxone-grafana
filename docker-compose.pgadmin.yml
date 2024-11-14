@@ -1,0 +1,19 @@
+version: '3.3'
+
+volumes:
+  pgadmin-data:
+
+services:
+
+  pgadmin:
+      image: dpage/pgadmin4
+      environment:
+        PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+        PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      env_file:
+        - .env
+      ports:
+        - "8080:80"
+      volumes:
+        - pgadmin-data:/var/lib/pgadmin      
+

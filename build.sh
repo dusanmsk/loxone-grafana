@@ -1,2 +1,4 @@
 #!/bin/bash
-docker-compose build $@
+source common     
+files=$(get_compose_files)
+docker-compose $files build $@
