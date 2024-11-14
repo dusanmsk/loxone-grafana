@@ -166,7 +166,7 @@ def migrate_measurement(measurement):
         while True:
             tprint("Migrating data for measurement:", measurement_name)
             query = f'SELECT * FROM "{measurement_name}" LIMIT {batch_size} OFFSET {start_offset}'
-            tprint(f"   Executing query: {query}")
+            # tprint(f"   Executing query: {query}")
             results = influx_client2.query(query)
             timescale_data = convert_to_timescale_data(measurement_name, results)
             if(len(timescale_data) == 0):
