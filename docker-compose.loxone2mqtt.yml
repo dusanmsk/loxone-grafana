@@ -9,7 +9,7 @@ services:
        - "1883:1883"
        - "9001:9001"
 
-  node-lox-mqtt-gateway:
+  loxone2mqtt:
     build: loxone2mqtt/node-lox-mqtt-gateway
     restart: unless-stopped
     env_file:

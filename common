@@ -18,5 +18,9 @@ function get_compose_files() {
     if [ "$PGADMIN_ENABLED" == "true" ]; then
         docker_compose_files="$docker_compose_files -f docker-compose.pgadmin.yml"
     fi
+    if [ "$QUESTDB_ENABLED" == "true" ]; then
+        docker_compose_files="$docker_compose_files -f docker-compose.questdb.yml"
+    fi
+
     echo $docker_compose_files
 }

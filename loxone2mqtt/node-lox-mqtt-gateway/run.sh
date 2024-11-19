@@ -11,7 +11,7 @@ cat<<EOF > /default.json
         }
     }],
     "mqtt": {
-        "host": "mqtt://${MQTT_ADDRESS}:${MQTT_PORT}",
+        "host": "mqtt://${MQTT_HOST}:${MQTT_PORT}",
         "options": {
             "clientId": "node-lox-mqtt-gateway"
         }

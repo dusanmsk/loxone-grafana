@@ -16,7 +16,8 @@
     - database: loxone
     - no user password
     - save and test
-7. Grafana is ready, go ahead and create some graphs.
+- or if using questdb, install questdb datasource and configure it as: TODO
+- Grafana is ready, go ahead and create some graphs.
 
 
 
