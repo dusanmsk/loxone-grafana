@@ -1,78 +1,112 @@
 @Grab("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.4")
 @Grab("org.influxdb:influxdb-java:2.7")
-@Grab(group = 'org.slf4j', module = 'slf4j-api', version = '1.6.1')
-@Grab(group = 'ch.qos.logback', module = 'logback-classic', version = '0.9.28')
+
+@Grab(group = 'org.slf4j', module = 'slf4j-api', version = '2.0.16')
+@Grab(group = 'org.slf4j', module = 'slf4j-jdk14', version = '2.0.16')
+@Grab('io.github.cdimascio:dotenv-java:3.0.0')
+@Grab(group = 'org.slf4j', module = 'slf4j-api', version = '2.0.1')
+@Grab(group = 'org.slf4j', module = 'slf4j-simple', version = '2.0.1')
+
 
 import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
+import io.github.cdimascio.dotenv.Dotenv
 import org.eclipse.paho.client.mqttv3.*
 import org.influxdb.InfluxDB
 import org.influxdb.InfluxDBFactory
 import org.influxdb.dto.Point
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
+
 import java.util.concurrent.TimeUnit
+
+class Config {
+
+    static LOCAL_DEBUG = false
+
+    static FIRE_EVEN_NOT_CHANGED_SEC
+
+    static MQTT_HOST
+
+    static MQTT_PORT
+
+    static LOXONE_MQTT_TOPIC_NAME
+
+    static INFLUX_DB_NAME
+
+    static INFLUXDB_HOST
+
+    static INFLUXDB_PORT
+
+    static INFLUXDB_USER
+
+    static INFLUXDB_PASSWORD
+
+    static LOXONE_TO_INFLUX_LOGLEVEL
+
+    static readEnvironmentVariables() {
+        Map<String, String> env =  System.getenv()
+        if (Config.LOCAL_DEBUG) {
+            Dotenv dotenv = Dotenv.configure()
+                    .directory("/home/msk/work/github/loxone-grafana/")
+                    .filename(".env.local")
+                    .load()
+            env = [:]
+            dotenv.entries().each { e ->
+                env.put(e.key, e.value)
+            }
+        }
+
+        FIRE_EVEN_NOT_CHANGED_SEC = env.get("FIRE_EVEN_NOT_CHANGED_SEC").toInteger()
+        MQTT_HOST = env.get("MQTT_HOST")
+        MQTT_PORT = env.get("MQTT_PORT")
+        LOXONE_MQTT_TOPIC_NAME = env.get("LOXONE_MQTT_TOPIC_NAME")
+        INFLUX_DB_NAME = env.get("INFLUXDB_NAME");
+        INFLUXDB_HOST = env.get("INFLUXDB_HOST");
+        INFLUXDB_PORT = env.get("INFLUXDB_PORT");
+        INFLUXDB_USER = env.get("INFLUXDB_USER");
+        INFLUXDB_PASSWORD = env.get("INFLUXDB_PASSWORD");
+        LOXONE_TO_INFLUX_LOGLEVEL = env.get("LOXONE_TO_INFLUX_LOGLEVEL");
+    }
+
+}
+
+Config.readEnvironmentVariables()
+System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", Config.LOXONE_TO_INFLUX_LOGLEVEL?.toLowerCase())
+
+//import ch.qos.logback.classic.Level
+//import ch.qos.logback.classic.Logger
 
 @Slf4j
 class Main {
 
-    def FIRE_EVEN_NOT_CHANGED_SEC = System.getenv("FIRE_EVEN_NOT_CHANGED_SEC").toInteger()
-    def MQTT_ADDRESS = System.getenv("MQTT_ADDRESS")
-    def MQTT_PORT = System.getenv("MQTT_PORT")
-    def LOXONE_MQTT_TOPIC_NAME = System.getenv("LOXONE_MQTT_TOPIC_NAME")
-
     def jsonSlurper = new JsonSlurper()
+
     InfluxDB influxDB
+
     MqttClient client
-    String INFLUX_DB_NAME = System.getenv("INFLUXDB_NAME");
-    String INFLUXDB_HOST = System.getenv("INFLUXDB_HOST");
-    String INFLUXDB_PORT = System.getenv("INFLUXDB_PORT");
-    String INFLUXDB_ADDRESS = "http://${INFLUXDB_HOST}:${INFLUXDB_PORT}";
-    String INFLUXDB_USER = System.getenv("INFLUXDB_USER");
-    String INFLUXDB_PASSWORD = System.getenv("INFLUXDB_PASSWORD");
 
     def previousValues = [:]
+
     def fireTimestamps = [:]
 
-    def configureLogging() {
-        String LOXONE_TO_INFLUX_LOGLEVEL = System.getenv("LOXONE_TO_INFLUX_LOGLEVEL");
-        Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)
-        switch (LOXONE_TO_INFLUX_LOGLEVEL?.toLowerCase()) {
-            case "debug":
-                rootLogger.setLevel(Level.DEBUG)
-                break
-            case "info":
-                rootLogger.setLevel(Level.INFO)
-                break
-            case "warn":
-                rootLogger.setLevel(Level.WARN)
-                break
-            default:
-                rootLogger.setLevel(Level.INFO)
-                break
-        }
-    }
-
     def start() throws Exception {
-        configureLogging()
         refireThread.setDaemon(true)
         refireThread.start()
-        log.info("Connecting to influx at ${INFUXDB_ADDRESS}")
-        log.info("FIRE_EVEN_NOT_CHANGED_SEC=${FIRE_EVEN_NOT_CHANGED_SEC}")
+        def influxdbAddressString = "http://${Config.INFLUXDB_HOST}:${Config.INFLUXDB_PORT}";
+        log.info("Connecting to influx at ${influxdbAddressString}")
+        log.info("FIRE_EVEN_NOT_CHANGED_SEC=${Config.FIRE_EVEN_NOT_CHANGED_SEC}")
 
-        influxDB = InfluxDBFactory.connect(INFLUXDB_ADDRESS, INFLUXDB_USER, INFLUXDB_PASSWORD)
-        influxDB.createDatabase(INFLUX_DB_NAME)
-        influxDB.setDatabase(INFLUX_DB_NAME)
+        influxDB = InfluxDBFactory.connect(influxdbAddressString, Config.INFLUXDB_USER, Config.INFLUXDB_PASSWORD)
+        influxDB.createDatabase(Config.INFLUX_DB_NAME)
+        influxDB.setDatabase(Config.INFLUX_DB_NAME)
         influxDB.enableBatch(10, 2, TimeUnit.SECONDS)
         log.info("Connected to influx")
 
-        client = new MqttClient("tcp://${MQTT_ADDRESS}:${MQTT_PORT}", "mqtt2influx", null)
+        client = new MqttClient("tcp://${Config.MQTT_HOST}:${Config.MQTT_PORT}", "mqtt2influx", null)
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions()
         client.connect(mqttConnectOptions)
 
         client.setCallback(new MqttCallbackExtended() {
+
             @Override
             void connectComplete(boolean b, String s) {
                 subscribe()
@@ -104,12 +138,12 @@ class Main {
 
     def subscribe() {
         log.info("Connected to mqtt")
-        client.subscribe("${LOXONE_MQTT_TOPIC_NAME}/#")
+        client.subscribe("${Config.LOXONE_MQTT_TOPIC_NAME}/#")
         log.info("Ready")
     }
 
     def getStatName(topic) {
-        def s = topic.toString().replace("${LOXONE_MQTT_TOPIC_NAME}/", "").replace("/state", "").replaceAll("[^A-Za-z0-9_]", "_");
+        def s = topic.toString().replace("${Config.LOXONE_MQTT_TOPIC_NAME}/", "").replace("/state", "").replaceAll("[^A-Za-z0-9_]", "_");
         while (s.contains("__")) {
             s = s.replaceAll("__", "_")
         }
@@ -137,12 +171,12 @@ class Main {
             def fieldCount = 0
             data.each { i ->
                 def value = fixupValue(i.value)
-                if(value != null) {
-                  point = point.addField(i.key, value)
-                  fieldCount++
+                if (value != null) {
+                    point = point.addField(i.key, value)
+                    fieldCount++
                 }
             }
-            if(fieldCount > 0) {
+            if (fieldCount > 0) {
                 influxDB.write(point.build())
                 fireTimestamps[topic] = now
                 previousValues[topic] = message
@@ -160,13 +194,13 @@ class Main {
             def message = previousValues[topic]
             def lastFired = fireTimestamps[topic]
             lastFired = lastFired == null ? 0 : lastFired
-            if (now - lastFired > FIRE_EVEN_NOT_CHANGED_SEC * 1000) {
+            if (now - lastFired > Config.FIRE_EVEN_NOT_CHANGED_SEC * 1000) {
                 fireMessage(topic, message)
             }
         }
     }
 
-        
+
     def fixupValue(value) {
         try {
             value = value.toString()
@@ -180,10 +214,9 @@ class Main {
                 def dotCnt = 0
                 for (int i = 0; i < value.length(); i++) {
                     char ch = value[i]
-                    if(ch == '-' && i == 0) {
+                    if (ch == '-' && i == 0) {
                         numericValue << ch
-                    }
-                    else if(ch.isDigit()) {
+                    } else if (ch.isDigit()) {
                         numericValue << ch
                     } else if (ch == '.' && dotCnt == 0) {
                         numericValue << ch
@@ -200,16 +233,15 @@ class Main {
         return null
     }
 
-
-
     Thread refireThread = new Thread(new Runnable() {
+
         @Override
         void run() {
             while (true) {
                 try {
                     refireStoredMessages()
                 } finally {
-                    Thread.sleep(FIRE_EVEN_NOT_CHANGED_SEC * 1000)
+                    Thread.sleep(Config.FIRE_EVEN_NOT_CHANGED_SEC * 1000)
                 }
             }
         }
