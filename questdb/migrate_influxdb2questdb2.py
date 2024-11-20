@@ -103,7 +103,8 @@ def insert_chunk_into_questdb(measurement_name, chunk):
                 del row['time']
                 sender.row(
                     table_name,
-                    columns=row,
+                    # convert all numeric values to float
+                    columns={k: float(v) if isinstance(v, (int, float)) else v for k, v in row.items()},
                     at=TimestampNanos(ts)
                 )
             sender.flush()

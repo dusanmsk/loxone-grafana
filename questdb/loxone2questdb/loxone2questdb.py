@@ -99,7 +99,8 @@ def insert_to_questdb(measurement_name, columns, at):
     measurement_name = measurement_name[:127]       # max 127 characters
     questdb_sender.row(
         measurement_name,
-        columns=columns,
+        # convert all numeric values to float
+        columns={k: float(v) if isinstance(v, (int, float)) else v for k, v in columns.items()},
         at = at
     )
 
