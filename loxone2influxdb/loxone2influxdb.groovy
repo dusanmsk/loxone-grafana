@@ -40,7 +40,7 @@ class Config {
 
     static INFLUXDB_PASSWORD
 
-    static LOXONE_TO_INFLUX_LOGLEVEL
+    static LOXONE2INFLUXDB_LOGLEVEL
 
     static readEnvironmentVariables() {
         Map<String, String> env =  System.getenv()
@@ -64,13 +64,13 @@ class Config {
         INFLUXDB_PORT = env.get("INFLUXDB_PORT");
         INFLUXDB_USER = env.get("INFLUXDB_USER");
         INFLUXDB_PASSWORD = env.get("INFLUXDB_PASSWORD");
-        LOXONE_TO_INFLUX_LOGLEVEL = env.get("LOXONE_TO_INFLUX_LOGLEVEL");
+        LOXONE2INFLUXDB_LOGLEVEL = env.get("LOXONE2INFLUXDB_LOGLEVEL");
     }
 
 }
 
 Config.readEnvironmentVariables()
-System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", Config.LOXONE_TO_INFLUX_LOGLEVEL?.toLowerCase())
+System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", Config.LOXONE2INFLUXDB_LOGLEVEL?.toLowerCase())
 
 //import ch.qos.logback.classic.Level
 //import ch.qos.logback.classic.Logger
