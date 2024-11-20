@@ -1,26 +1,24 @@
-# common functions for run scripts
 
-function get_compose_files() {
-    source .env
-    docker_compose_files=""
-    if [ "$LOXONE2MQTT_ENABLED" == "true" ]; then
-        docker_compose_files="$docker_compose_files -f docker-compose.loxone2mqtt.yml"
-    fi
-    if [ "$INFLUXDB_ENABLED" == "true" ]; then
-        docker_compose_files="$docker_compose_files -f docker-compose.influxdb.yml"
-    fi
-    if [ "$TIMESCALEDB_ENABLED" == "true" ]; then
-        docker_compose_files="$docker_compose_files -f docker-compose.timescaledb.yml"
-    fi
-    if [ "$GRAFANA_ENABLED" == "true" ]; then
-        docker_compose_files="$docker_compose_files -f docker-compose.grafana.yml"
-    fi
-    if [ "$PGADMIN_ENABLED" == "true" ]; then
-        docker_compose_files="$docker_compose_files -f docker-compose.pgadmin.yml"
-    fi
-    if [ "$QUESTDB_ENABLED" == "true" ]; then
-        docker_compose_files="$docker_compose_files -f docker-compose.questdb.yml"
-    fi
-
-    echo $docker_compose_files
-}
+# prepare COMPOSE_FILE environment variable by reading enabled services from .env file
+COMPOSE_FILE=""
+source .env
+if [ "$LOXONE2MQTT_ENABLED" == "true" ]; then
+    COMPOSE_FILE="$COMPOSE_FILE:docker-compose.loxone2mqtt.yml"
+fi
+if [ "$INFLUXDB_ENABLED" == "true" ]; then
+    COMPOSE_FILE="$COMPOSE_FILE:docker-compose.influxdb.yml"
+fi
+if [ "$TIMESCALEDB_ENABLED" == "true" ]; then
+    COMPOSE_FILE="$COMPOSE_FILE:docker-compose.timescaledb.yml"
+fi
+if [ "$GRAFANA_ENABLED" == "true" ]; then
+    COMPOSE_FILE="$COMPOSE_FILE:docker-compose.grafana.yml"
+fi
+if [ "$PGADMIN_ENABLED" == "true" ]; then
+    COMPOSE_FILE="$COMPOSE_FILE:docker-compose.pgadmin.yml"
+fi
+if [ "$QUESTDB_ENABLED" == "true" ]; then
+    COMPOSE_FILE="$COMPOSE_FILE:docker-compose.questdb.yml"
+fi
+COMPOSE_FILE=${COMPOSE_FILE:1}
+export COMPOSE_FILE
