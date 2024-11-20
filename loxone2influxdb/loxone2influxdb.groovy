@@ -1,21 +1,18 @@
+
 @Grab("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.4")
 @Grab("org.influxdb:influxdb-java:2.7")
-
-@Grab(group = 'org.slf4j', module = 'slf4j-api', version = '2.0.16')
-@Grab(group = 'org.slf4j', module = 'slf4j-jdk14', version = '2.0.16')
 @Grab('io.github.cdimascio:dotenv-java:3.0.0')
-@Grab(group = 'org.slf4j', module = 'slf4j-api', version = '2.0.1')
-@Grab(group = 'org.slf4j', module = 'slf4j-simple', version = '2.0.1')
-
+@Grab(group = 'org.apache.logging.log4j', module = 'log4j-api', version = '2.20.0')
+@Grab(group = 'org.apache.logging.log4j', module = 'log4j-core', version = '2.20.0')
 
 import groovy.json.JsonSlurper
-import groovy.util.logging.Slf4j
 import io.github.cdimascio.dotenv.Dotenv
 import org.eclipse.paho.client.mqttv3.*
 import org.influxdb.InfluxDB
 import org.influxdb.InfluxDBFactory
 import org.influxdb.dto.Point
-
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import java.util.concurrent.TimeUnit
 
 class Config {
@@ -64,19 +61,22 @@ class Config {
         INFLUXDB_PORT = env.get("INFLUXDB_PORT");
         INFLUXDB_USER = env.get("INFLUXDB_USER");
         INFLUXDB_PASSWORD = env.get("INFLUXDB_PASSWORD");
-        LOXONE2INFLUXDB_LOGLEVEL = env.get("LOXONE2INFLUXDB_LOGLEVEL");
     }
 
 }
 
+// helper for buildig docker container
+if (args.length > 0 && args[0] == "grape") {
+    print("Graping done, exit")
+    System.exit(0)
+}
+
+
 Config.readEnvironmentVariables()
-System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", Config.LOXONE2INFLUXDB_LOGLEVEL?.toLowerCase())
 
-//import ch.qos.logback.classic.Level
-//import ch.qos.logback.classic.Logger
-
-@Slf4j
 class Main {
+
+    Logger log = LogManager.getLogger('loxone2influxdb')
 
     def jsonSlurper = new JsonSlurper()
 
@@ -250,3 +250,4 @@ class Main {
 
 def m = new Main()
 m.start()
+

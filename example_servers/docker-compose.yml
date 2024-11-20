@@ -1,0 +1,47 @@
+# this is example file to run all support services required by loxone-grafana bridge.
+# create copy of this file somewhere in your system and remove/comment out services that you dont want to start
+
+
+services:
+
+  # mosquitto is mandatory, it is required by loxone2mqtt bridge
+  mosquitto:
+    build: mosquitto
+    restart: unless-stopped
+    ports:
+       - "1883:1883"
+       - "9001:9001"
+
+  # influxdb is required if you use loxone2influxdb bridge
+  influxdb:
+    image: influxdb:1.8
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "25826:25826/udp"
+    volumes:
+      - ${STORAGE_ROOT_PATH}/influxdb:/var/lib/influxdb
+      - ./influxdb/influxdb.conf:/etc/influxdb/influxdb.conf:ro
+
+  # questdb is required if you use loxone2questdb bridge
+  questdb:
+    image: questdb/questdb:latest
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9009:9009"
+      - "8812:8812"
+    volumes:
+      - ${STORAGE_ROOT_PATH}/questdb:/var/lib/questdb
+
+  # example grafana service
+  grafana:
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    user: "0:0"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ${STORAGE_ROOT_PATH}/grafana:/var/lib/grafana
+

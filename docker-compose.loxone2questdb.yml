@@ -1,17 +1,6 @@
 services:
-
-  questdb:
-    image: questdb/questdb:latest
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
-      - "9009:9009"
-      - "8812:8812"
-    volumes:
-      - ${STORAGE_ROOT_PATH}/questdb:/var/lib/questdb
-
   loxone2questdb:
-    build: questdb/loxone2questdb
+    build: loxone2questdb
     restart: unless-stopped
     env_file:
       - .env
