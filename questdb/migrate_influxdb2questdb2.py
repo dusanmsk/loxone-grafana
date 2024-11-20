@@ -34,12 +34,20 @@ auto_flush_interval = 300000
 main_progressbar = None
 do_shutdown = False
 
+class InfluxDBClientContextManager:
+    def __init__(self, *args, **kwargs):
+        self.client = InfluxDBClient(*args, **kwargs)
+        self.client.switch_database(influx_db)
+
+    def __enter__(self):
+        return self.client
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.client.close()
+
 def create_influx_client():
     global influx_host, influx_port, influx_user, influx_password, influx_db
-    influx_client = InfluxDBClient(host=influx_host, port=influx_port, username=influx_user, password=influx_password)
-    influx_client.switch_database(influx_db)
-    return influx_client
-
+    return InfluxDBClientContextManager(host=influx_host, port=influx_port, username=influx_user, password=influx_password)
 
 def get_influx_count(measurement, where=None):
     with create_influx_client() as influx_client:
