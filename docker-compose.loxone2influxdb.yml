@@ -1,0 +1,6 @@
+services:
+  loxone2questdb:
+    build: questdb/loxone2questdb
+    restart: unless-stopped
+    env_file:
+      - .env
