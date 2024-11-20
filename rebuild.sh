@@ -1,4 +1,3 @@
 #!/bin/bash
 source common     
-files=$(get_compose_files)
-docker-compose $files build --no-cache $@
+docker compose build --no-cache $@
