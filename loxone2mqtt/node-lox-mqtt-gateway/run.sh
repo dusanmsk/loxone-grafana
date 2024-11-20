@@ -5,7 +5,7 @@ cat<<EOF > /default.json
 {
     "winston": [{
         "Console": {
-            "level": "${NODE_LOX_MQTT_LOGLEVEL}",
+            "level": "${LOXONE2MQTT_LOGLEVEL}",
             "colorize": true,
             "timestamp": true
         }
