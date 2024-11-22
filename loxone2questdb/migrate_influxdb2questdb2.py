@@ -1,3 +1,4 @@
+from lib import *
 import argparse
 import concurrent.futures
 import datetime
@@ -6,6 +7,7 @@ import os
 import re
 import signal
 import sys
+import traceback
 
 import requests
 from influxdb import InfluxDBClient
@@ -17,13 +19,13 @@ parallel_jobs = int(os.cpu_count() / 2)
 batch_size = 10000
 
 # Nastavenie InfluxDB klienta
-influx_host = "localhost"
+influx_host = "docker"
 influx_port = 8086
 influx_db = "loxone"
 influx_user = "loxone"  # Nastavte, ak máte používateľa
 influx_password = "loxone"  # Nastavte, ak máte heslo
 
-questdb_host = "localhost"
+questdb_host = "docker"
 questdb_port = 9000
 questdb_username = "admin"
 questdb_password = "quest"
@@ -62,20 +64,23 @@ def get_influx_count(measurement, where=None):
             return max_value
         except Exception as e:
             print(f"Failed to get count for {measurement}: {e}")
+            traceback.print_exc()
             return 0
 
 
 def get_questdb_oldest_timestamp(measurement):
-    query = f"SELECT min(timestamp) FROM {measurement}"
-    url = f"http://{questdb_host}:{questdb_port}/exec"
-    response = requests.get(url, params={"query": query})
-    date = datetime.datetime.now()
-    if response.status_code == 200:
-        results = response.json()
-        date_str = results['dataset'][0][0]
-        date = parse_timestamp(date_str)
-    return date
-
+    try:
+        query = f"SELECT min(timestamp) FROM {measurement}"
+        url = f"http://{questdb_host}:{questdb_port}/exec"
+        response = requests.get(url, params={"query": query})
+        date = datetime.datetime.now()
+        if response.status_code == 200:
+            results = response.json()
+            date_str = results['dataset'][0][0]
+            date = parse_timestamp(date_str)
+        return date
+    except Exception as e:
+        return datetime.datetime.now()
 
 def to_epoch(dt):
     return int(dt.timestamp() * 1_000_000_000)
@@ -103,13 +108,13 @@ def insert_chunk_into_questdb(measurement_name, chunk):
                 del row['time']
                 sender.row(
                     table_name,
-                    # convert all numeric values to float
-                    columns={k: float(v) if isinstance(v, (int, float)) else v for k, v in row.items()},
+                    columns=fixColumns(row.items()),
                     at=TimestampNanos(ts)
                 )
             sender.flush()
     except Exception as e:
         logging.error(f"Failed to insert chunk into QuestDB: {e}")
+        traceback.print_exc()
 
 
 def insert_to_questdb(measurement_name, data):
@@ -145,6 +150,7 @@ def do_export(measurement):
         except Exception as e:
             # todo log to file
             print(f"Failed to export {measurement}: {e}")
+            traceback.print_exc()
 
         finally:
             global main_progressbar
@@ -158,8 +164,8 @@ def main():
     parser.add_argument('-r', help='Measurement name regex', required=False, action='append')
     parser.add_argument('-e', help='Exclude measurement name regex', required=False, action='append')
     parser.add_argument('-p', help='Prefix for questdb table names', required=False)
+    parser.add_argument('-j', help='Number of parallel jobs', required=False, default=os.cpu_count())
     args = parser.parse_args()
-
 
     if args.d:
         global influx_db
@@ -171,17 +177,20 @@ def main():
 
     measurements = []
     if args.m:
-        measurements = [args.m]
+        measurements = [a for a in args.m]
     else:
         with create_influx_client() as influx_client:
             measurements = sorted([m['name'] for m in influx_client.get_list_measurements()])
     if args.r:
-        for include_pattern in args.p:
+        for include_pattern in args.r:
             measurements = [m for m in measurements if re.match(include_pattern, m)]
 
     if args.e:
         for exclude_pattern in args.e:
             measurements = [m for m in measurements if not re.match(exclude_pattern, m)]
+
+    if args.j:
+        parallel_jobs = int(args.j)
 
     global main_progressbar
     main_progressbar = tqdm(total=len(measurements), desc="Total Progress", position=0, leave=True)
