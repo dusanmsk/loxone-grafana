@@ -31,6 +31,8 @@ def convertTypes(fields):
         value = fix_value(value)
         if (isinstance(value, str)):
             key = f"{key}_str"
+        if isinstance(value, (int, float)):
+            value = float(value)
         columns[key] = value
     return columns
 
