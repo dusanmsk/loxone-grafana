@@ -43,17 +43,6 @@ def mqtt_on_connect(client, userdata, flags, rc, properties):
         logging.error("Failed to connect to MQTT broker")
         sys.exit(1)
 
-
-def convertTypes(fields):
-    columns = {}
-    for key, value in fields.items():
-        value = fix_value(value)
-        if (isinstance(value, str)):
-            key = f"{key}_str"
-        columns[key] = value
-    return columns
-
-
 def mqtt_on_message(client, userdata, msg):
     try:
         global questdb_util, processed_cnt

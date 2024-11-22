@@ -137,7 +137,8 @@ def insert_chunk_into_questdb(measurement_name, chunk, influx_field_types, quest
             for row in chunk:
                 ts = row['time']
                 del row['time']
-                columns = convertTypes(row, influx_field_types, questdb_field_types)
+                #columns = convertTypes(row, influx_field_types, questdb_field_types)
+                columns = convertTypes(row)
                 sender.insert_to_questdb(table_name, columns, TimestampNanos(ts))
     except Exception as e:
         logging.error(f"Failed to insert chunk into QuestDB: {e}")
