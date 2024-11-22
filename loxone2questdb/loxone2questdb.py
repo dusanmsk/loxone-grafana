@@ -1,3 +1,4 @@
+from lib import *
 from datetime import timedelta
 import logging
 import threading, datetime
@@ -51,27 +52,6 @@ questdb_port = get_env_var('QUESTDB_PORT')
 questdb_username = get_env_var('QUESTDB_USERNAME')
 questdb_password = get_env_var('QUESTDB_PASSWORD')
 
-# prevedie hodnotu na cislo alebo string. U hodnot kde je cislo a string (napriklad "1.0 kW") sa pokusi extrahovat 1.0 ako cislo
-def fix_value(value):
-    if isinstance(value, (int, float)):
-        return value
-    else:
-        s = str(value)
-        if s.lower() in ["true", "on", "zap", "ano", "yes", "1"]:
-            return 1
-        elif s.lower() in ["false", "off", "vyp", "ne", "no", "0"]:
-            return 1
-        if " " in s:
-            words = s.split(" ")
-            s = words[0].strip()
-        # odzadu odmazava znaky, kym nenarazi na cislo (odreze kW, W, %, atd.)
-        while s and not s[-1].isdigit():
-            s = s[:-1]
-        try:
-            return float(s)
-        except ValueError:
-            return str(s)
-
 
 def get_measurement_name(topic, loxone_mqtt_topic_name):
     s = topic.replace(f"{loxone_mqtt_topic_name}/", "").replace("/state", "")
@@ -99,8 +79,7 @@ def insert_to_questdb(measurement_name, columns, at):
     measurement_name = measurement_name[:127]       # max 127 characters
     questdb_sender.row(
         measurement_name,
-        # convert all numeric values to float
-        columns={k: float(v) if isinstance(v, (int, float)) else v for k, v in columns.items()},
+        columns=fixColumns(columns),
         at = at
     )
 
