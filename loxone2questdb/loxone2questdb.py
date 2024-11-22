@@ -7,10 +7,9 @@ import os, sys
 from time import sleep
 import paho.mqtt.client as mqtt
 import json
-import re
 from questdb.ingress import Sender, TimestampNanos
 
-auto_flush_rows = 200
+auto_flush_rows = 2       # todo 50
 auto_flush_interval = 5000
 progress_interval=60        # 60
 
@@ -18,28 +17,8 @@ err_cnt = 0
 processed_cnt = 0
 mqtt_client = None
 
-def get_env_var(name):
-    value = os.environ.get(name)
-    assert value, f"{name} environment variable is not set."
-    return value
-
-def getLogLevel():
-    level=str(os.getenv('LOXONE2QUESTDB_LOGLEVEL', 'info')).lower()
-    if level == 'debug':
-        return logging.DEBUG
-    elif level == 'info':
-        return logging.INFO
-    elif level == 'warning':
-        return logging.WARNING
-    elif level == 'error':
-        return logging.ERROR
-    elif level == 'critical':
-        return logging.CRITICAL
-    else:
-        return logging.INFO
-
 # set logging level
-logging.basicConfig(level=getLogLevel(), format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=getLogLevel('LOXONE2QUESTDB_LOGLEVEL'), format='%(asctime)s - %(levelname)s - %(message)s')
 
 # read environment variables
 mqtt_host = get_env_var('MQTT_HOST')
@@ -51,46 +30,39 @@ questdb_port = get_env_var('QUESTDB_PORT')
 questdb_username = get_env_var('QUESTDB_USERNAME')
 questdb_password = get_env_var('QUESTDB_PASSWORD')
 
-
-def get_measurement_name(topic, loxone_mqtt_topic_name):
-    s = topic.replace(f"{loxone_mqtt_topic_name}/", "").replace("/state", "")
-    s = re.sub(r"[^A-Za-z0-9_]", "_", s)
-    while "__" in s:
-        s = s.replace("__", "_")
-    if s.endswith("_"):
-        s = s[:-1]
-    return s
-
+questdb_util = QuestDbUtil(questdb_host, questdb_port, questdb_username, questdb_password, auto_flush_rows, auto_flush_interval)
+questdb_util.connect()
 
 def mqtt_on_connect(client, userdata, flags, rc, properties):
     if rc == 0:
         logging.info("Connected to MQTT broker")
-        # Subscribe to the LOXONE_MQTT_TOPIC_NAME
-        client.subscribe(f"{loxone_mqtt_topic_name}/#")
+        topic = f"{loxone_mqtt_topic_name}/#"
+        logging.info(f"Subscribing to {topic}")
+        client.subscribe(topic)
     else:
         logging.error("Failed to connect to MQTT broker")
         sys.exit(1)
 
-conf = f'http::addr={questdb_host}:{questdb_port};username={questdb_username};password={questdb_password};auto_flush_rows={auto_flush_rows};auto_flush_interval={auto_flush_interval};'
-def insert_to_questdb(measurement_name, columns, at):
-    logging.debug(f"Inserting to QuestDB: {measurement_name}, {columns}, {at}")
-    measurement_name = measurement_name[:127]       # max 127 characters
-    with Sender.from_conf(conf) as sender:
-        sender.row(
-            measurement_name,
-            columns=columns,
-            at = at
-        )
+
+def convertTypes(fields):
+    columns = {}
+    for key, value in fields.items():
+        value = fix_value(value)
+        if (isinstance(value, str)):
+            key = f"{key}_str"
+        columns[key] = value
+    return columns
+
 
 def mqtt_on_message(client, userdata, msg):
     try:
+        global questdb_util, processed_cnt
         payload = msg.payload.decode()
-        measurement_name = get_measurement_name(msg.topic, loxone_mqtt_topic_name)
+        measurement_name = mqtt_topic_to_measurent_name(msg.topic, loxone_mqtt_topic_name)
         data = json.loads(payload)
-        insert_to_questdb(measurement_name, fixColumns(data), TimestampNanos.now())
-        global processed_cnt
+        columns = convertTypes(data)
+        questdb_util.insert_to_questdb(measurement_name, columns, TimestampNanos.now())
         processed_cnt += 1
-
     except Exception as e:
         logging.error(f"Error: {e}")
         traceback.print_exc()
@@ -113,18 +85,16 @@ def connectToMQTTAndLoopForever():
     mqtt_client.on_connect = mqtt_on_connect
     mqtt_client.on_message = mqtt_on_message
     mqtt_client.on_disconnect = mqtt_on_disconnect
-    if (getLogLevel() <= logging.INFO):
+    if (getLogLevel('LOXONE2QUESTDB_LOGLEVEL') <= logging.INFO):
         mqtt_client.enable_logger()
     mqtt_client.connect(mqtt_host, mqtt_port)
     logging.info("Starting MQTT loop")
     mqtt_client.loop_forever(retry_first_connection=True)
 
 def reporting_handler():
-    # Keep the script running
     while True:
         print_progress()
         sleep(progress_interval)
-
 
 def main():
     logging.info("Starting loxone2questdb")
