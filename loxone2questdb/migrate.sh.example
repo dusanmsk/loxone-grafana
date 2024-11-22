@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#pip3 install -r requirements.txt
+
+python3 migrate_influxdb2questdb2.py \
+    -i localhost:8086:loxone:loxone:loxone \
+    -q localhost:9000:admin:questdb \
+    -j 6 \
+    -c 3
+
