@@ -1,10 +1,10 @@
 
 
-def fixKeyValue(key, value):
+def fixKeyValue(key, value, db_type):
     if value == None:
         return None, None
     value = fix_value(value)
-    if(isinstance(value, (int, float))):
+    if( db_type == 'DOUBLE' and isinstance(value, (int, float))):
         return key, value
     else:
         key = f"{key}_str"
@@ -12,11 +12,12 @@ def fixKeyValue(key, value):
         return key, value
 
 # pokusi sa previest value na float. pokial sa to nepodari, prevedie ho na string a modifikuje nazov fieldu (prida _str) tak, aby nedoslo ku konfliktu typov v databazi
-def fixColumns(columns):
+def fixColumns(columns, column_types):
     ret = {}
     for key in columns:
         value = columns[key]
-        key, value = fixKeyValue(key, value)
+        db_type = column_types.get(key)
+        key, value = fixKeyValue(key, value, db_type)
         if key is not None and value is not None:
             ret[key] = value
     return ret

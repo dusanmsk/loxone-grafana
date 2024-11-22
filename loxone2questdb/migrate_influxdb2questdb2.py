@@ -116,15 +116,34 @@ def exitOnError():
 conf = f'http::addr={questdb_host}:{questdb_port};username={questdb_username};password={questdb_password};auto_flush_rows={auto_flush_rows};auto_flush_interval={auto_flush_interval};'
 
 
+def getQuestDbTableColumnTypes(table_name):
+    column_types = {}
+    url = f"http://{questdb_host}:{questdb_port}/exec"
+    query = f"""
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = '{table_name}';
+    """
+    response = requests.get(url, params={"query": query})
+    if response.status_code == 200:
+        data = response.json()
+        for row in data["dataset"]:
+            column_name, data_type = row
+            column_types[column_name] = data_type
+
+    return column_types
+
+
 def insert_chunk_into_questdb(measurement_name, chunk):
     try:
         global questdb_tablename_prefix
         table_name = f"{questdb_tablename_prefix}{measurement_name}"
+        column_types = getQuestDbTableColumnTypes(table_name)
         with questdb.ingress.Sender.from_conf(conf) as sender:
             for row in chunk:
                 ts = row['time']
                 del row['time']
-                columns = fixColumns(row)
+                columns = fixColumns(row, column_types)
                 sender.row(
                     table_name,
                     columns=columns,
