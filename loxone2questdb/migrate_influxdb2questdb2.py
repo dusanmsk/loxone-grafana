@@ -13,22 +13,6 @@ from influxdb import InfluxDBClient
 from questdb.ingress import TimestampNanos
 from tqdm import tqdm
 
-def get_env_var(name):
-    value = os.environ.get(name)
-    assert value, f"{name} environment variable is not set."
-    return value
-
-questdb_host = get_env_var('QUESTDB_HOST')
-questdb_port = get_env_var('QUESTDB_PORT')
-questdb_username = get_env_var('QUESTDB_USERNAME')
-questdb_password = get_env_var('QUESTDB_PASSWORD')
-
-influxdb_host = get_env_var('INFLUXDB_HOST')
-influxdb_port = int(get_env_var('INFLUXDB_PORT'))
-influxdb_name = get_env_var('INFLUXDB_NAME')
-influxdb_user = get_env_var('INFLUXDB_USER')
-influxdb_password = get_env_var('INFLUXDB_PASSWORD')
-
 auto_flush_rows = 1000
 auto_flush_interval = 300000
 parallel_jobs = int(os.cpu_count() / 2)
