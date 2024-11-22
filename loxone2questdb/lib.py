@@ -25,6 +25,15 @@ def fixColumns(columns, field_types):
         ret[key] = value
     return ret
 
+def convertTypes(fields):
+    columns = {}
+    for key, value in fields.items():
+        value = fix_value(value)
+        if (isinstance(value, str)):
+            key = f"{key}_str"
+        columns[key] = value
+    return columns
+
 
 # prevedie hodnotu na cislo alebo string. U hodnot kde je cislo a string (napriklad "1.0 kW") sa pokusi extrahovat 1.0 ako cislo
 # vrati povodnu hodnotu ak sa konverzia nepodarila
