@@ -116,17 +116,17 @@ def convertField(key, value, influx_type, questdb_type):
         except ValueError:
             return f"{key}_str", str(value)
 
-def convertTypes(fields, influx_field_types, questdb_field_types):
-    columns = {}
-    for key, value in fields.items():
-        influx_type = influx_field_types.get(key)
-        questdb_type = questdb_field_types.get(key)
-        if(type_match(influx_type, questdb_type)):
-            columns[key] = value
-        else:
-            key, value = convertField(key, value, influx_type, questdb_type)
-            columns[key] = value
-    return columns
+# def convertTypes(fields, influx_field_types, questdb_field_types):
+#     columns = {}
+#     for key, value in fields.items():
+#         influx_type = influx_field_types.get(key)
+#         questdb_type = questdb_field_types.get(key)
+#         if(type_match(influx_type, questdb_type)):
+#             columns[key] = value
+#         else:
+#             key, value = convertField(key, value, influx_type, questdb_type)
+#             columns[key] = value
+#     return columns
 
 
 def insert_chunk_into_questdb(measurement_name, chunk, influx_field_types, questdb_field_types):
