@@ -8,38 +8,43 @@ import re
 import signal
 import sys
 import traceback
-
 import requests
 from influxdb import InfluxDBClient
 from questdb.ingress import TimestampNanos
 from tqdm import tqdm
 import questdb.ingress
 
+def get_env_var(name):
+    value = os.environ.get(name)
+    assert value, f"{name} environment variable is not set."
+    return value
+
+questdb_host = get_env_var('QUESTDB_HOST')
+questdb_port = get_env_var('QUESTDB_PORT')
+questdb_username = get_env_var('QUESTDB_USERNAME')
+questdb_password = get_env_var('QUESTDB_PASSWORD')
+
+influxdb_host = get_env_var('INFLUXDB_HOST')
+influxdb_port = int(get_env_var('INFLUXDB_PORT'))
+influxdb_name = get_env_var('INFLUXDB_NAME')
+influxdb_user = get_env_var('INFLUXDB_USER')
+influxdb_password = get_env_var('INFLUXDB_PASSWORD')
+
+auto_flush_rows = 1000
+auto_flush_interval = 300000
 parallel_jobs = int(os.cpu_count() / 2)
 batch_size = 10000
 
-# Nastavenie InfluxDB klienta
-influx_host = "docker"
-influx_port = 8086
-influx_db = "loxone"
-influx_user = "loxone"  # Nastavte, ak máte používateľa
-influx_password = "loxone"  # Nastavte, ak máte heslo
-
-questdb_host = "docker"
-questdb_port = 9000
-questdb_username = "admin"
-questdb_password = "quest"
-questdb_tablename_prefix = ""
-auto_flush_rows = 1000
-auto_flush_interval = 300000
-
 main_progressbar = None
 do_shutdown = False
+skip_errors = False
+questdb_tablename_prefix = ""
+
 
 class InfluxDBClientContextManager:
     def __init__(self, *args, **kwargs):
         self.client = InfluxDBClient(*args, **kwargs)
-        self.client.switch_database(influx_db)
+        self.client.switch_database(influxdb_name)
 
     def __enter__(self):
         return self.client
@@ -47,9 +52,11 @@ class InfluxDBClientContextManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.client.close()
 
+
 def create_influx_client():
-    global influx_host, influx_port, influx_user, influx_password, influx_db
-    return InfluxDBClientContextManager(host=influx_host, port=influx_port, username=influx_user, password=influx_password)
+    global influxdb_host, influxdb_port, influxdb_user, influxdb_password, influxdb_name
+    return InfluxDBClientContextManager(host=influxdb_host, port=influxdb_port, username=influxdb_user, password=influxdb_password)
+
 
 def get_influx_count(measurement, where=None):
     with create_influx_client() as influx_client:
@@ -82,8 +89,10 @@ def get_questdb_oldest_timestamp(measurement):
     except Exception as e:
         return datetime.datetime.now()
 
+
 def to_epoch(dt):
     return int(dt.timestamp() * 1_000_000_000)
+
 
 def parse_timestamp(ts):
     date = None
@@ -93,11 +102,20 @@ def parse_timestamp(ts):
         date = datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
     return date.replace(tzinfo=datetime.timezone.utc)
 
+
 def split_into_chunks(array, chunk_size):
     return [array[i:i + chunk_size] for i in range(0, len(array), chunk_size)]
 
 
+def exitOnError():
+    global skip_errors
+    if not skip_errors:
+        sys.exit(1)
+
+
 conf = f'http::addr={questdb_host}:{questdb_port};username={questdb_username};password={questdb_password};auto_flush_rows={auto_flush_rows};auto_flush_interval={auto_flush_interval};'
+
+
 def insert_chunk_into_questdb(measurement_name, chunk):
     try:
         global questdb_tablename_prefix
@@ -106,24 +124,25 @@ def insert_chunk_into_questdb(measurement_name, chunk):
             for row in chunk:
                 ts = row['time']
                 del row['time']
+                columns = fixColumns(row)
                 sender.row(
                     table_name,
-                    columns=fixColumns(row.items()),
+                    columns=columns,
                     at=TimestampNanos(ts)
                 )
             sender.flush()
     except Exception as e:
         logging.error(f"Failed to insert chunk into QuestDB: {e}")
         traceback.print_exc()
+        exitOnError()
 
 
 def insert_to_questdb(measurement_name, data):
     num_parallalel = 5
-    chunks = split_into_chunks(data, int(batch_size/num_parallalel))
+    chunks = split_into_chunks(data, int(batch_size / num_parallalel))
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_parallalel) as executor:
         futures = [executor.submit(insert_chunk_into_questdb, measurement_name, chunk) for chunk in chunks]
         concurrent.futures.wait(futures)
-
 
 
 def do_export(measurement):
@@ -151,6 +170,7 @@ def do_export(measurement):
             # todo log to file
             print(f"Failed to export {measurement}: {e}")
             traceback.print_exc()
+            exitOnError()
 
         finally:
             global main_progressbar
@@ -165,11 +185,12 @@ def main():
     parser.add_argument('-e', help='Exclude measurement name regex', required=False, action='append')
     parser.add_argument('-p', help='Prefix for questdb table names', required=False)
     parser.add_argument('-j', help='Number of parallel jobs', required=False, default=os.cpu_count())
+    parser.add_argument('-s', help='Skip errors', required=False, default=False)
     args = parser.parse_args()
 
     if args.d:
-        global influx_db
-        influx_db = args.d
+        global influxdb_name
+        influxdb_name = args.d
 
     if args.p:
         global questdb_tablename_prefix
@@ -192,6 +213,10 @@ def main():
     if args.j:
         parallel_jobs = int(args.j)
 
+    if args.s:
+        global skip_errors
+        skip_errors = args.s
+
     global main_progressbar
     main_progressbar = tqdm(total=len(measurements), desc="Total Progress", position=0, leave=True)
 
@@ -203,6 +228,7 @@ def main():
             executor.shutdown(wait=False, cancel_futures=True)
             print("\nMigration interrupted")
             sys.exit(0)
+
         signal.signal(signal.SIGINT, signal_handler)
         futures = [executor.submit(do_export, m) for m in measurements]
         concurrent.futures.wait(futures)

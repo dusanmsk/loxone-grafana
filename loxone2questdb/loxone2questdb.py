@@ -1,15 +1,14 @@
+import traceback
+
 from lib import *
-from datetime import timedelta
 import logging
-import threading, datetime
+import threading
 import os, sys
 from time import sleep
 import paho.mqtt.client as mqtt
 import json
 import re
 from questdb.ingress import Sender, TimestampNanos
-
-# TODO aj valuename dat do slovnika
 
 auto_flush_rows = 200
 auto_flush_interval = 5000
@@ -72,29 +71,29 @@ def mqtt_on_connect(client, userdata, flags, rc, properties):
         logging.error("Failed to connect to MQTT broker")
         sys.exit(1)
 
-
+conf = f'http::addr={questdb_host}:{questdb_port};username={questdb_username};password={questdb_password};auto_flush_rows={auto_flush_rows};auto_flush_interval={auto_flush_interval};'
 def insert_to_questdb(measurement_name, columns, at):
     logging.debug(f"Inserting to QuestDB: {measurement_name}, {columns}, {at}")
-    global questdb_sender
     measurement_name = measurement_name[:127]       # max 127 characters
-    questdb_sender.row(
-        measurement_name,
-        columns=fixColumns(columns),
-        at = at
-    )
+    with Sender.from_conf(conf) as sender:
+        sender.row(
+            measurement_name,
+            columns=columns,
+            at = at
+        )
 
-questdb_sender = None
 def mqtt_on_message(client, userdata, msg):
     try:
         payload = msg.payload.decode()
         measurement_name = get_measurement_name(msg.topic, loxone_mqtt_topic_name)
         data = json.loads(payload)
-        columns = {key:fix_value(value) for key, value in data.items()}
-        insert_to_questdb(measurement_name, columns, TimestampNanos.now())
+        insert_to_questdb(measurement_name, fixColumns(data), TimestampNanos.now())
         global processed_cnt
         processed_cnt += 1
+
     except Exception as e:
         logging.error(f"Error: {e}")
+        traceback.print_exc()
         global err_cnt
         err_cnt = err_cnt + 1
 
@@ -131,11 +130,6 @@ def main():
     logging.info("Starting loxone2questdb")
     reporting_thread = threading.Thread(target=reporting_handler)
     reporting_thread.start()
-
-    conf = f'http::addr={questdb_host}:{questdb_port};username={questdb_username};password={questdb_password};auto_flush_rows={auto_flush_rows};auto_flush_interval={auto_flush_interval};'
-    with Sender.from_conf(conf) as sender:
-        global questdb_sender
-        questdb_sender = sender
-        connectToMQTTAndLoopForever()
+    connectToMQTTAndLoopForever()
 
 main()

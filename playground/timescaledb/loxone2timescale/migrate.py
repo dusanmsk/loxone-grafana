@@ -7,7 +7,7 @@ influxdb_host = 'localhost'
 influxdb_port = 8086
 influxdb_user = 'grafana'
 influxdb_password = 'grafana'
-influxdb_dbname = 'loxone'
+influxdb_name = 'loxone'
 
 
 from enum import unique
@@ -121,7 +121,7 @@ influx_client = InfluxDBClient(
     port=influxdb_port,
     username=influxdb_user,
     password=influxdb_password,
-    database=influxdb_dbname
+    database=influxdb_name
 )
 
 tprint("Starting data migration...")
@@ -156,7 +156,7 @@ def migrate_measurement(measurement):
             port=influxdb_port,
             username=influxdb_user,
             password=influxdb_password,
-            database=influxdb_dbname
+            database=influxdb_name
         )
         start_offset = 0
         while True:
