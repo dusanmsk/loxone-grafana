@@ -32,6 +32,9 @@ services:
       - "9000:9000"
       - "9009:9009"
       - "8812:8812"
+    environment:
+      - QDB_PG_USER=${QUESTDB_USERNAME}
+      - QDB_PG_PASSWORD=${QUESTDB_PASSWORD}
     volumes:
       - ${STORAGE_ROOT_PATH}/questdb:/var/lib/questdb
 

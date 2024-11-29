@@ -9,9 +9,9 @@ import paho.mqtt.client as mqtt
 import json
 from questdb.ingress import Sender, TimestampNanos
 
-auto_flush_rows = 2       # todo 50
+auto_flush_rows = 50
 auto_flush_interval = 5000
-progress_interval=60        # 60
+progress_interval=60
 
 err_cnt = 0
 processed_cnt = 0

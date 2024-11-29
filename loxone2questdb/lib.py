@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 from questdb.ingress import Sender, TimestampNanos
@@ -140,13 +140,14 @@ class QuestDbUtil:
             query = f"SELECT min(timestamp) FROM {measurement}"
             url = f"http://{self.questdb_host}:{self.questdb_port}/exec"
             response = requests.get(url, params={"query": query})
-            date = datetime.datetime.now()
+            date = datetime.now()
             if response.status_code == 200:
                 results = response.json()
                 date_str = results['dataset'][0][0]
                 date = self.parse_timestamp(date_str)
             return date
         except Exception as e:
+            logging.warning(f"Failed to get oldest timestamp for {measurement}: {e}")
             return datetime.now()
 
     def parse_timestamp(self, ts):
@@ -155,4 +156,4 @@ class QuestDbUtil:
             date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
         else:
             date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
-        return date.replace(tzinfo=datetime.timezone.utc)
+        return date.replace(tzinfo=timezone.utc)
