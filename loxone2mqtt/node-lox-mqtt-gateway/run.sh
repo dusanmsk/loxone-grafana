@@ -22,11 +22,14 @@ cat<<EOF > /default.json
         "username": "${LOXONE_USERNAME}",
         "password": "${LOXONE_PASSWORD}",
         "readonly": true
+    },
+    "publish_options": {
+        "retain": true,
     }
 }
 EOF
 
-# cat /default.json; sleep 10
+cat /default.json; sleep 5
 
 while true; do
     lox-mqtt-gateway --NODE_CONFIG_DIR=/
